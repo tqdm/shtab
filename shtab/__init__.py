@@ -18,7 +18,7 @@ from collections import defaultdict
 from functools import total_ordering
 from itertools import starmap
 from string import Template
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Sequence
 from typing import Optional as Opt
 from typing import Union
 
@@ -128,6 +128,14 @@ def complete2pattern(opt_complete, shell: str, choice_type2fn) -> str:
             if isinstance(opt_complete, dict) else choice_type2fn[opt_complete])
 
 
+def bash_listify(lst: Sequence[str]) -> str:
+    """Create a bash array from a list of strings"""
+    if len(lst) == 0:
+        return '()'
+    else:
+        return "('%s')" % "' '".join(lst)
+
+
 def wordify(string: str) -> str:
     """Replace non-word chars [\\W] with underscores [_]"""
     return re.sub("\\W", "_", string)
@@ -229,8 +237,7 @@ def get_bash_commands(root_parser, root_prefix, choice_functions=None):
                         this_positional_choices.append(str(choice))
 
                 if this_positional_choices:
-                    choices_str = "' '".join(this_positional_choices)
-                    choices.append(f"{prefix}_pos_{i}_choices=('{choices_str}')")
+                    choices.append(f"{prefix}_pos_{i}_choices={bash_listify(this_positional_choices)}")
 
             # skip default `nargs` values
             if positional.nargs not in (None, "1", "?"):
@@ -271,9 +278,7 @@ def get_bash_commands(root_parser, root_prefix, choice_functions=None):
                             this_optional_choices.append(str(choice))
 
                     if this_optional_choices:
-                        this_choices_str = "' '".join(this_optional_choices)
-                        choices.append(
-                            f"{prefix}_{wordify(option_string)}_choices=('{this_choices_str}')")
+                        choices.append(f"{prefix}_{wordify(option_string)}_choices={bash_listify(this_optional_choices)}")
 
                 # Check for nargs.
                 if optional.nargs is not None and optional.nargs != 1:
