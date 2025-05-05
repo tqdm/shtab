@@ -18,9 +18,9 @@ from collections import defaultdict
 from functools import total_ordering
 from itertools import starmap
 from string import Template
-from typing import Any, Dict, List, Sequence
+from typing import Any, Dict, List, Mapping
 from typing import Optional as Opt
-from typing import Union
+from typing import Sequence, Tuple, Union
 
 # version detector. Precedence: installed dist, git, 'UNKNOWN'
 try:
@@ -32,7 +32,7 @@ except ImportError:
         __version__ = get_version(root="..", relative_to=__file__)
     except (ImportError, LookupError):
         __version__ = "UNKNOWN"
-__all__ = ["complete", "add_argument_to", "SUPPORTED_SHELLS", "FILE", "DIRECTORY", "DIR"]
+__all__ = ["complete", "add_argument_to", "SUPPORTED_SHELLS", "FILE", "DIRECTORY", "DIR", "fglob"]
 log = logging.getLogger(__name__)
 
 SUPPORTED_SHELLS: List[str] = []
@@ -49,6 +49,15 @@ FLAG_OPTION = (
     _AppendConstAction,
     _CountAction,
 )
+
+
+def fglob(fglob: str):
+    '''Glob files'''
+    return {
+        '__glob__': fglob,
+        'bash': '_shtab_compgen_files', # Uses `__glob__` internally
+        'zsh': f"_files -g '{fglob}'",
+        'tcsh': f'f:{fglob}',}
 
 
 class _ShtabPrintCompletionAction(Action):
@@ -124,8 +133,26 @@ class Required:
 
 
 def complete2pattern(opt_complete, shell: str, choice_type2fn) -> str:
-    return (opt_complete.get(shell, "")
-            if isinstance(opt_complete, dict) else choice_type2fn[opt_complete])
+    if isinstance(opt_complete, dict):
+        return opt_complete.get(shell, "")
+    else:
+        return choice_type2fn[opt_complete]
+
+
+def bash_complete2compgen(
+    opt_complete: Mapping[str, str],
+    shell: str,
+    choice_type2fn: Mapping[str, str],
+) -> Tuple[str, Tuple[str]]:
+    # Same inputs as `complete2pattern`
+    options = []
+    if isinstance(opt_complete, dict):
+        if '__glob__' in opt_complete:
+            option_glob = opt_complete['__glob__']
+            options.extend(['-X', f'!{option_glob}'])
+        return opt_complete.get(shell), tuple(options)
+    else:
+        return choice_type2fn[opt_complete], tuple(options)
 
 
 def bash_listify(lst: Sequence[str]) -> str:
@@ -194,8 +221,11 @@ def get_bash_commands(root_parser, root_prefix, choice_functions=None):
 
             if hasattr(positional, "complete"):
                 # shtab `.complete = ...` functions
-                comp_pattern = complete2pattern(positional.complete, "bash", choice_type2fn)
-                compgens.append(f"{prefix}_pos_{i}_COMPGEN={comp_pattern}")
+                comp_gen, comp_genopts = bash_complete2compgen(positional.complete, "bash",
+                                                               choice_type2fn)
+                compgens.extend([
+                    f"{prefix}_pos_{i}_COMPGEN={comp_gen}",
+                    f"{prefix}_pos_{i}_COMPGEN_options={bash_listify(comp_genopts)}",])
 
             if positional.choices:
                 # choices (including subparsers & shtab `.complete` functions)
@@ -207,7 +237,9 @@ def get_bash_commands(root_parser, root_prefix, choice_functions=None):
                         # append special completion type to `compgens`
                         # NOTE: overrides `.complete` attribute
                         log.debug(f"Choice.{choice.type}:{prefix}:{positional.dest}")
-                        compgens.append(f"{prefix}_pos_{i}_COMPGEN={choice_type2fn[choice.type]}")
+                        compgens.extend([
+                            f"{prefix}_pos_{i}_COMPGEN={choice_type2fn[choice.type]}",
+                            f"{prefix}_pos_{i}_COMPGEN_options=()",])
                     elif isinstance(positional.choices, dict):
                         # subparser, so append to list of subparsers & recurse
                         log.debug("subcommand:%s", choice)
@@ -237,7 +269,8 @@ def get_bash_commands(root_parser, root_prefix, choice_functions=None):
                         this_positional_choices.append(str(choice))
 
                 if this_positional_choices:
-                    choices.append(f"{prefix}_pos_{i}_choices={bash_listify(this_positional_choices)}")
+                    choices.append(
+                        f"{prefix}_pos_{i}_choices={bash_listify(this_positional_choices)}")
 
             # skip default `nargs` values
             if positional.nargs not in (None, "1", "?"):
@@ -258,9 +291,12 @@ def get_bash_commands(root_parser, root_prefix, choice_functions=None):
             for option_string in optional.option_strings:
                 if hasattr(optional, "complete"):
                     # shtab `.complete = ...` functions
-                    comp_pattern_str = complete2pattern(optional.complete, "bash", choice_type2fn)
-                    compgens.append(
-                        f"{prefix}_{wordify(option_string)}_COMPGEN={comp_pattern_str}")
+                    comp_gen, comp_genopts = bash_complete2compgen(optional.complete, "bash",
+                                                                   choice_type2fn)
+                    compgens.extend([
+                        f"{prefix}_{wordify(option_string)}_COMPGEN={comp_gen}",
+                        f"{prefix}_{wordify(option_string)}_COMPGEN_options={bash_listify(comp_genopts)}",
+                    ])
 
                 if optional.choices:
                     # choices (including shtab `.complete` functions)
@@ -270,15 +306,17 @@ def get_bash_commands(root_parser, root_prefix, choice_functions=None):
                         # NOTE: overrides `.complete` attribute
                         if isinstance(choice, Choice):
                             log.debug(f"Choice.{choice.type}:{prefix}:{optional.dest}")
-                            func_str = choice_type2fn[choice.type]
-                            compgens.append(
-                                f"{prefix}_{wordify(option_string)}_COMPGEN={func_str}")
+                            compgens.extend([
+                                f"{prefix}_{wordify(option_string)}_COMPGEN={choice_type2fn[choice.type]}",
+                                f"{prefix}_{wordify(option_string)}_COMPGEN_options=()",])
                         else:
                             # simple choice
                             this_optional_choices.append(str(choice))
 
                     if this_optional_choices:
-                        choices.append(f"{prefix}_{wordify(option_string)}_choices={bash_listify(this_optional_choices)}")
+                        choices.append(
+                            f"{prefix}_{wordify(option_string)}_choices={bash_listify(this_optional_choices)}"
+                        )
 
                 # Check for nargs.
                 if optional.nargs is not None and optional.nargs != 1:
@@ -328,7 +366,9 @@ ${nargs}
 ${preamble}
 # $1=COMP_WORDS[1]
 _shtab_compgen_files() {
-  compgen -f -- $1  # files
+  local cur="$1"
+  shift
+  compgen -f "$@" -- "$cur"  # files
 }
 
 # $1=COMP_WORDS[1]
@@ -363,6 +403,13 @@ _set_new_action() {
   local current_action_compgen_var=${current_action}_COMPGEN
   current_action_compgen="${!current_action_compgen_var-}"
 
+  if [ -z "$current_action_compgen" ]; then
+    current_action_compgen_options=()
+  else
+    local current_action_compgen_options_var="${current_action}_COMPGEN_options[@]"
+    current_action_compgen_options=("${!current_action_compgen_options_var}")
+  fi
+
   local current_action_choices_var="${current_action}_choices[@]"
   current_action_choices="${!current_action_choices_var-}"
 
@@ -393,6 +440,7 @@ ${root_prefix}() {
   local current_action_args_start_index
   local current_action_choices
   local current_action_compgen
+  local -a current_action_compgen_options
   local current_action_is_positional
   local current_action_nargs
   local current_option_strings
@@ -450,11 +498,14 @@ ${root_prefix}() {
     # handle redirection operators
     COMPREPLY=( $(compgen -f -- "${completing_word}") )
   else
-    # use choices & compgen
-    local IFS=$'\\n' # items may contain spaces, so delimit using newline
-    COMPREPLY=( $([ -n "${current_action_compgen}" ] \\
-                  && "${current_action_compgen}" "${completing_word}") )
-    unset IFS
+    COMPREPLY=()
+    # use compgen
+    if [ -n "${current_action_compgen}" ]; then
+        local IFS=$'\\n' # items may contain spaces, so delimit using newline
+        COMPREPLY+=( $("${current_action_compgen}" "${current_action_compgen_options[@]}" "${completing_word}") )
+        unset IFS
+    fi
+    # use choices
     COMPREPLY+=( $(compgen -W "${current_action_choices[*]}" -- "${completing_word}") )
   fi
 
