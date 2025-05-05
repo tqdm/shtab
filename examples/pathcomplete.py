@@ -15,7 +15,8 @@ def get_main_parser():
     shtab.add_argument_to(parser, ["-s", "--print-completion"]) # magic!
 
     # file & directory tab complete
-    parser.add_argument("file", nargs="?").complete = shtab.FILE
+    parser.add_argument("file_all", nargs="?").complete = shtab.FILE
+    parser.add_argument("file_md", nargs="?").complete = shtab.fglob('*.md')
     parser.add_argument("--dir", default=".").complete = shtab.DIRECTORY
     return parser
 
