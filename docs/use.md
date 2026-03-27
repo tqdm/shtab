@@ -152,11 +152,11 @@ Assuming this code example is installed in `MY_PROG.command.main`, simply run:
     folder for more.
 
 Complex projects with subparsers and custom completions for paths matching
-certain patterns (e.g. `--file=*.txt`) are fully supported (see
+certain patterns (e.g. `--file=*.txt`) are supported using the `fglob` function
+(see fully custom examples
 [examples/customcomplete.py](https://github.com/iterative/shtab/tree/main/examples/customcomplete.py)
 or even
-[iterative/dvc:commands/completion.py](https://github.com/iterative/dvc/blob/main/dvc/commands/completion.py)
-for example).
+[iterative/dvc:commands/completion.py](https://github.com/iterative/dvc/blob/main/dvc/commands/completion.py)).
 
 Add direct support to scripts for a little more configurability:
 
@@ -172,6 +172,7 @@ Add direct support to scripts for a little more configurability:
         shtab.add_argument_to(parser, ["-s", "--print-completion"])  # magic!
         # file & directory tab complete
         parser.add_argument("file", nargs="?").complete = shtab.FILE
+        parser.add_argument("markdown", nargs="?").complete = shtab.fglob("*.md")
         parser.add_argument("--dir", default=".").complete = shtab.DIRECTORY
         return parser
 
