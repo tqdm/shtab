@@ -1,6 +1,119 @@
 [build-system]
-requires = ["setuptools>=42", "wheel", "setuptools_scm[toml]>=3.4"]
+requires = ["setuptools>=77", "setuptools_scm[toml]>=3.4"]
+build-backend = "setuptools.build_meta"
 
 [tool.setuptools_scm]
 write_to = "shtab/_dist_ver.py"
 write_to_template = "__version__ = '{version}'\n"
+
+[tool.setuptools.packages.find]
+exclude = ["docs", "tests", "examples"]
+
+[tool.setuptools.exclude-package-data]
+"*" = ["logo.png"]
+
+[project.urls]
+documentation = "https://docs.iterative.ai/shtab"
+repository = "https://github.com/iterative/shtab"
+changelog = "https://github.com/iterative/shtab/releases"
+
+[project]
+name = "shtab"
+dynamic = ["version"]
+authors = [{name = "Casper da Costa-Luis", email = "casper.dcl@physics.org"}]
+maintainers = [{name = "Iterative", email = "support@iterative.ai"}]
+description = "Automagic shell tab completion for Python CLI applications"
+readme = "README.rst"
+requires-python = ">=3.9"
+keywords = ["tab", "complete", "completion", "shell", "bash", "zsh", "argparse"]
+license = "Apache-2.0"
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Environment :: MacOS X",
+    "Environment :: Other Environment",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Education",
+    "Intended Audience :: End Users/Desktop",
+    "Intended Audience :: Other Audience",
+    "Intended Audience :: System Administrators",
+    "Operating System :: MacOS",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: POSIX",
+    "Operating System :: POSIX :: BSD",
+    "Operating System :: POSIX :: BSD :: FreeBSD",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: POSIX :: SunOS/Solaris",
+    "Operating System :: Unix",
+    "Programming Language :: Other Scripting Engines",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: Implementation",
+    "Programming Language :: Python :: Implementation :: IronPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Programming Language :: Unix Shell",
+    "Topic :: Desktop Environment",
+    "Topic :: Education :: Computer Aided Instruction (CAI)",
+    "Topic :: Education :: Testing",
+    "Topic :: Office/Business",
+    "Topic :: Other/Nonlisted Topic",
+    "Topic :: Software Development",
+    "Topic :: Software Development :: Build Tools",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Software Development :: Pre-processors",
+    "Topic :: Software Development :: User Interfaces",
+    "Topic :: System",
+    "Topic :: System :: Installation/Setup",
+    "Topic :: System :: Shells",
+    "Topic :: System :: System Shells",
+    "Topic :: Terminals",
+    "Topic :: Utilities"]
+
+[project.optional-dependencies]
+dev = ["pytest>=6", "pytest-cov", "pytest-timeout"]
+
+[project.scripts]
+shtab = "shtab.main:main"
+
+[tool.flake8]
+max_line_length = 99
+extend_ignore = ["E261", "P101"]
+exclude = [".git", "__pycache__", "build", "dist", ".eggs"]
+
+[tool.yapf]
+spaces_before_comment = [15, 20]
+arithmetic_precedence_indication = true
+allow_split_before_dict_value = false
+coalesce_brackets = true
+column_limit = 99
+each_dict_entry_on_separate_line = false
+space_between_ending_comma_and_closing_bracket = false
+split_before_named_assigns = false
+split_before_closing_bracket = false
+blank_line_before_nested_class_or_def = false
+
+[tool.isort]
+profile = "black"
+line_length = 99
+known_first_party = ["shtab", "tests"]
+
+[tool.mypy]
+warn_unused_configs = true
+warn_unused_ignores = true
+show_error_codes = true
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+timeout = 5
+log_level = "DEBUG"
+python_files = ["test_*.py"]
+testpaths = ["tests"]
+addopts = "-v --tb=short -rxs -W=error --durations=0 --cov=shtab --cov-report=term-missing --cov-report=xml"

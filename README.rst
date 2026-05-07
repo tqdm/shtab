@@ -3,7 +3,7 @@
 shtab
 =====
 
-|Tests| |Coverage| |Conda| |PyPI|
+|PyPI-Downloads| |Tests| |Coverage| |PyPI| |Conda|
 
 - What: Automatically generate shell tab completion scripts for Python CLI apps
 - Why: Speed & correctness. Alternatives like
@@ -60,8 +60,8 @@ There are two ways of using ``shtab``:
 - `Library Usage <https://docs.iterative.ai/shtab/use/#library-usage>`_: as a library integrated into your CLI application
 
   - adds a couple of lines to your application
-  - argument mode: end-users execute ``your_cli_app --print-completion {bash,zsh}``
-  - subparser mode: end-users execute ``your_cli_app completion {bash,zsh}``
+  - argument mode: end-users execute ``your_cli_app --print-completion {bash,zsh,tcsh}``
+  - subparser mode: end-users execute ``your_cli_app completion {bash,zsh,tcsh}``
 
 Examples
 --------
@@ -80,7 +80,6 @@ Alternatives
 
   - executes the underlying script *every* time ``<TAB>`` is pressed (slow and
     has side-effects)
-  - only provides ``bash`` completion
 
 - `pyzshcomplete <https://pypi.org/project/pyzshcomplete>`_
 
@@ -98,20 +97,20 @@ Contributions
 
 Please do open `issues <https://github.com/iterative/shtab/issues>`_ & `pull requests <https://github.com/iterative/shtab/pulls>`_! Some ideas:
 
-- support ``fish``
+- support ``fish`` (`#174 <https://github.com/iterative/shtab/pull/174>`_)
 - support ``powershell``
 
 See
-`CONTRIBUTING.md <https://github.com/iterative/shtab/tree/master/CONTRIBUTING.md>`_
+`CONTRIBUTING.md <https://github.com/iterative/shtab/tree/main/CONTRIBUTING.md>`_
 for more guidance.
 
 |Hits|
 
-.. |Logo| image:: https://github.com/iterative/shtab/raw/master/meta/logo.png
-.. |Tests| image:: https://github.com/iterative/shtab/workflows/Test/badge.svg
+.. |Logo| image:: https://github.com/iterative/shtab/raw/main/meta/logo.png
+.. |Tests| image:: https://img.shields.io/github/actions/workflow/status/iterative/shtab/test.yml?logo=github&label=tests
    :target: https://github.com/iterative/shtab/actions
    :alt: Tests
-.. |Coverage| image:: https://codecov.io/gh/iterative/shtab/branch/master/graph/badge.svg
+.. |Coverage| image:: https://codecov.io/gh/iterative/shtab/branch/main/graph/badge.svg
    :target: https://codecov.io/gh/iterative/shtab
    :alt: Coverage
 .. |Conda| image:: https://img.shields.io/conda/v/conda-forge/shtab.svg?label=conda&logo=conda-forge
@@ -120,6 +119,9 @@ for more guidance.
 .. |PyPI| image:: https://img.shields.io/pypi/v/shtab.svg?label=pip&logo=PyPI&logoColor=white
    :target: https://pypi.org/project/shtab
    :alt: PyPI
-.. |Hits| image:: https://caspersci.uk.to/cgi-bin/hits.cgi?q=shtab&style=social&r=https://github.com/iterative/shtab&a=hidden
-   :target: https://caspersci.uk.to/cgi-bin/hits.cgi?q=shtab&a=plot&r=https://github.com/iterative/shtab&style=social
+.. |PyPI-Downloads| image:: https://img.shields.io/pypi/dm/shtab.svg?label=pypi%20downloads&logo=PyPI&logoColor=white
+   :target: https://pepy.tech/project/shtab
+   :alt: Downloads
+.. |Hits| image:: https://cgi.cdcl.ml/hits?q=shtab&style=social&r=https://github.com/iterative/shtab&a=hidden
+   :target: https://cgi.cdcl.ml/hits?q=shtab&a=plot&r=https://github.com/iterative/shtab&style=social
    :alt: Hits

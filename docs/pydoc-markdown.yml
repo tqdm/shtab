@@ -5,6 +5,9 @@ processors:
 - type: filter
 - type: pydoc_markdown_shtab.ShtabProcessor
 - type: crossref
+hooks:
+  pre-render:
+  - sed 's#](./#](https://github.com/iterative/shtab/tree/main/#g' ../CONTRIBUTING.md > contributing.md
 renderer:
   type: mkdocs
   markdown:
@@ -37,7 +40,7 @@ renderer:
       href: https://github.com/iterative/shtab/issues?q=
   - title: Contributing
     name: contributing
-    source: ../CONTRIBUTING.md
+    source: contributing.md
   - title: Licence
     name: licence
     source: ../LICENCE
@@ -55,8 +58,9 @@ renderer:
       generator: false
     theme:
       name: material
-      logo: https://github.com/iterative/shtab/raw/master/meta/logo.png
-      favicon: https://github.com/iterative/shtab/raw/master/meta/logo.png
+      logo: https://github.com/iterative/shtab/raw/main/meta/logo.png
+      favicon: https://github.com/iterative/shtab/raw/main/meta/logo.png
+      features: [content.tabs.link]
       palette:
       - scheme: default
         primary: white
@@ -68,8 +72,6 @@ renderer:
         toggle:
           icon: material/toggle-switch
           name: Switch to light mode
-      features:
-      - content.tabs.link
     plugins:
     - search
     - minify:

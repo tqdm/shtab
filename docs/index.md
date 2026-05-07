@@ -1,9 +1,10 @@
 ![shtab](https://static.iterative.ai/img/shtab/banner.png)
 
-[![Tests](https://github.com/iterative/shtab/workflows/Test/badge.svg)](https://github.com/iterative/shtab/actions)
-[![Coverage](https://codecov.io/gh/iterative/shtab/branch/master/graph/badge.svg)](https://codecov.io/gh/iterative/shtab)
-[![conda-forge](https://img.shields.io/conda/v/conda-forge/shtab.svg?label=conda&logo=conda-forge)](https://anaconda.org/conda-forge/shtab)
+[![Downloads](https://img.shields.io/pypi/dm/shtab.svg?label=pypi%20downloads&logo=PyPI&logoColor=white)](https://pepy.tech/project/shtab)
+[![Tests](https://img.shields.io/github/actions/workflow/status/iterative/shtab/test.yml?logo=github&label=tests)](https://github.com/iterative/shtab/actions)
+[![Coverage](https://codecov.io/gh/iterative/shtab/branch/main/graph/badge.svg)](https://codecov.io/gh/iterative/shtab)
 [![PyPI](https://img.shields.io/pypi/v/shtab.svg?label=pip&logo=PyPI&logoColor=white)](https://pypi.org/project/shtab)
+[![conda-forge](https://img.shields.io/conda/v/conda-forge/shtab.svg?label=conda&logo=conda-forge)](https://anaconda.org/conda-forge/shtab)
 
 - What: Automatically generate shell tab completion scripts for Python CLI apps
 - Why: Speed & correctness. Alternatives like
@@ -97,7 +98,6 @@ application. Use `-u, --error-unimportable` to noisily complain.
 
 - [argcomplete](https://pypi.org/project/argcomplete)
     - executes the underlying script *every* time `<TAB>` is pressed (slow and has side-effects)
-    - only provides `bash` completion
 - [pyzshcomplete](https://pypi.org/project/pyzshcomplete)
     - executes the underlying script *every* time `<TAB>` is pressed (slow and has side-effects)
     - only provides `zsh` completion
@@ -109,14 +109,14 @@ application. Use `-u, --error-unimportable` to noisily complain.
 
 Please do open [issues][GH-issue] & [pull requests][GH-pr]! Some ideas:
 
-- support `fish`
+- support `fish` ([#174](https://github.com/iterative/shtab/pull/174))
 - support `powershell`
 
 See
-[CONTRIBUTING.md](https://github.com/iterative/shtab/tree/master/CONTRIBUTING.md)
+[CONTRIBUTING.md](https://github.com/iterative/shtab/tree/main/CONTRIBUTING.md)
 for more guidance.
 
-[![Hits](https://caspersci.uk.to/cgi-bin/hits.cgi?q=shtab&style=social&r=https://github.com/iterative/shtab&a=hidden)](https://caspersci.uk.to/cgi-bin/hits.cgi?q=shtab&a=plot&r=https://github.com/iterative/shtab&style=social)
+[![Hits](https://cgi.cdcl.ml/hits?q=shtab&style=social&r=https://github.com/iterative/shtab&a=hidden)](https://cgi.cdcl.ml/hits?q=shtab&a=plot&r=https://github.com/iterative/shtab&style=social)
 
 [GH-issue]: https://github.com/iterative/shtab/issues
 [GH-pr]: https://github.com/iterative/shtab/pulls

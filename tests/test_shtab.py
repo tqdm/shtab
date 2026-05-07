@@ -2,8 +2,8 @@
 Tests for `shtab`.
 """
 import logging
+import os
 import subprocess
-import sys
 from argparse import ArgumentParser
 
 import pytest
@@ -14,32 +14,30 @@ from shtab.main import get_main_parser, main
 fix_shell = pytest.mark.parametrize("shell", shtab.SUPPORTED_SHELLS)
 
 
-class Bash(object):
+class Bash:
     def __init__(self, init_script=""):
         self.init = init_script
 
     def test(self, cmd="1", failure_message=""):
         """Equivalent to `bash -c '{init}; [[ {cmd} ]]'`."""
         init = self.init + "\n" if self.init else ""
-        proc = subprocess.Popen([
-            "bash", "-o", "pipefail", "-ec", "{init}[[ {cmd} ]]".format(init=init, cmd=cmd)])
+        proc = subprocess.Popen(["bash", "-o", "pipefail", "-euc", f"{init}[[ {cmd} ]]"])
         stdout, stderr = proc.communicate()
-        assert (0 == proc.wait() and not stdout and not stderr), """\
-{}
-{}
+        assert (0 == proc.wait() and not stdout and not stderr), f"""\
+{failure_message}
+{cmd}
 === stdout ===
-{}=== stderr ===
-{}""".format(failure_message, cmd, stdout or "", stderr or "")
+{stdout or ""}=== stderr ===
+{stderr or ""}"""
 
     def compgen(self, compgen_cmd, word, expected_completions, failure_message=""):
         self.test(
-            '"$(echo $(compgen {} -- "{}"))" = "{}"'.format(compgen_cmd, word,
-                                                            expected_completions),
+            f'"$(echo $(compgen {compgen_cmd} -- "{word}"))" = "{expected_completions}"',
             failure_message,
         )
 
 
-@pytest.mark.parametrize("init,test", [("export FOO=1", '"$FOO" -eq 1'), ("", '-z "$FOO"')])
+@pytest.mark.parametrize("init,test", [("export FOO=1", '"$FOO" -eq 1'), ("", '-z "${FOO-}"')])
 def test_bash(init, test):
     shell = Bash(init)
     shell.test(test)
@@ -62,6 +60,49 @@ def test_choices():
 def test_main(shell, caplog):
     with caplog.at_level(logging.INFO):
         main(["-s", shell, "shtab.main.get_main_parser"])
+
+    assert not caplog.record_tuples
+
+
+@fix_shell
+def test_main_self_completion(shell, caplog, capsys):
+    with caplog.at_level(logging.INFO):
+        try:
+            main(["--print-own-completion", shell])
+        except SystemExit:
+            pass
+
+    captured = capsys.readouterr()
+    assert not captured.err
+    expected = {
+        "bash": "complete -o filenames -F _shtab_shtab shtab", "zsh": "_shtab_shtab_commands()",
+        "tcsh": "complete shtab"}
+    assert expected[shell] in captured.out
+
+    assert not caplog.record_tuples
+
+
+@pytest.mark.parametrize('output', ["-", "stdout", "test.txt"])
+@fix_shell
+def test_main_output_path(shell, caplog, capsys, change_dir, output):
+    assert not capsys.readouterr().out
+    with caplog.at_level(logging.INFO):
+        try:
+            main(["-s", shell, "shtab.main.get_main_parser", "-o", output])
+        except SystemExit:
+            pass
+
+    captured = capsys.readouterr()
+    assert not captured.err
+    expected = {
+        "bash": "complete -o filenames -F _shtab_shtab shtab", "zsh": "_shtab_shtab_commands()",
+        "tcsh": "complete shtab"}
+
+    if output in ("-", "stdout"):
+        assert expected[shell] in captured.out
+    else:
+        assert not captured.out
+        assert expected[shell] in (change_dir / output).read_text()
 
     assert not caplog.record_tuples
 
@@ -92,7 +133,10 @@ def test_prog_scripts(shell, caplog, capsys):
     elif shell == "zsh":
         assert script_py == [
             "#compdef script.py", "_describe 'script.py commands' _commands",
-            "'*::: :->script.py'", "script.py)"]
+            'local context state line curcontext="$curcontext" '
+            "one_or_more='(*)' remainder='(-)*' default='*::: :->script.py'",
+            "_shtab_shtab_options+=(': :_shtab_shtab_commands' '*::: :->script.py')", "script.py)",
+            "compdef _shtab_shtab -N script.py"]
     elif shell == "tcsh":
         assert script_py == ["complete script.py \\"]
     else:
@@ -177,13 +221,12 @@ def test_subparser_custom_complete(shell, caplog):
         shell.compgen('-W "${_shtab_test_subparsers[*]}"', "s", "sub")
         shell.compgen('-W "$_shtab_test_pos_0_choices"', "s", "sub")
         shell.test('"$($_shtab_test_sub_pos_0_COMPGEN o)" = "one"')
-        shell.test('-z "$_shtab_test_COMPGEN"')
+        shell.test('-z "${_shtab_test_COMPGEN-}"')
 
     assert not caplog.record_tuples
 
 
 @fix_shell
-@pytest.mark.skipif(sys.version_info[0] == 2, reason="requires Python 3.x")
 def test_subparser_aliases(shell, caplog):
     parser = ArgumentParser(prog="test")
     subparsers = parser.add_subparsers()
@@ -203,9 +246,46 @@ def test_subparser_aliases(shell, caplog):
         shell.compgen('-W "${_shtab_test_subparsers[*]}"', "y", "ysub")
         shell.compgen('-W "${_shtab_test_pos_0_choices[*]}"', "y", "ysub")
         shell.test('"$($_shtab_test_sub_pos_0_COMPGEN o)" = "one"')
-        shell.test('-z "$_shtab_test_COMPGEN"')
+        shell.test('-z "${_shtab_test_COMPGEN-}"')
 
     assert not caplog.record_tuples
+
+
+@fix_shell
+def test_subparser_colons(shell, caplog):
+    parser = ArgumentParser(prog="test")
+    subparsers = parser.add_subparsers()
+    subparsers.add_parser("sub:cmd", help="help message")
+    with caplog.at_level(logging.INFO):
+        completion = shtab.complete(parser, shell=shell)
+    print(completion)
+
+    if shell == "bash":
+        shell = Bash(completion)
+        shell.compgen('-W "${_shtab_test_subparsers[*]}"', "s", "sub:cmd")
+        shell.compgen('-W "${_shtab_test_pos_0_choices[*]}"', "s", "sub:cmd")
+        shell.test('-z "${_shtab_test_COMPGEN-}"')
+
+    assert not caplog.record_tuples
+
+
+@fix_shell
+def test_subparser_slashes(shell, caplog):
+    parser = ArgumentParser(prog="test")
+    subparsers = parser.add_subparsers()
+    subparsers.add_parser("sub/cmd", help="help message")
+    with caplog.at_level(logging.INFO):
+        completion = shtab.complete(parser, shell=shell)
+    print(completion)
+
+    if shell == "bash":
+        shell = Bash(completion)
+        shell.compgen('-W "${_shtab_test_subparsers[*]}"', "s", "sub/cmd")
+        shell.compgen('-W "${_shtab_test_pos_0_choices[*]}"', "s", "sub/cmd")
+        shell.test('-z "${_shtab_test_COMPGEN-}"')
+    elif shell == "zsh":
+        assert "_shtab_test_sub/cmd" not in completion
+        assert "_shtab_test_sub_cmd" in completion
 
 
 @fix_shell
@@ -236,10 +316,10 @@ def test_add_argument_to_positional(shell, caplog, capsys):
         with pytest.raises(SystemExit) as exc:
             sub._actions[-1](sub, Namespace(), shell)
             assert exc.type == SystemExit
-            assert exc.vaue.code == 0
+            assert exc.value.code == 0
     completion, err = capsys.readouterr()
     print(completion)
-    assert completion_manual == completion.rstrip()
+    assert completion_manual.rstrip() == completion.rstrip()
     assert not err
 
     if shell == "bash":
@@ -264,3 +344,28 @@ def test_get_completer_invalid():
         pass
     else:
         raise NotImplementedError("invalid")
+
+
+@pytest.fixture
+def change_dir(tmp_path):
+    original_cwd = os.getcwd()
+    os.chdir(tmp_path)
+    yield tmp_path
+    os.chdir(original_cwd)
+
+
+def test_path_completion_after_redirection(caplog, change_dir):
+    parser = ArgumentParser(prog="test")
+    shtab.add_argument_to(parser, ["-s", "--shell"])
+    with caplog.at_level(logging.INFO):
+        completion = shtab.complete(parser, shell="bash")
+    print(completion)
+
+    (change_dir / "test_file.txt").touch()
+
+    for redirection in [">", ">>", "1>", "1>>", "2>", "2>>"]:
+        shell = Bash(completion +
+                     f"\nCOMP_WORDS=(test '{redirection}' tes); COMP_CWORD=2; _shtab_test;")
+        shell.test('"${COMPREPLY[@]}" = "test_file.txt"', f"Redirection {redirection} failed")
+
+    assert not caplog.record_tuples

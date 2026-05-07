@@ -21,4 +21,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     msg = "k thx bai!" if args.goodbye else "hai!"
-    print("{} says '{}' to {}".format(args.me, msg, args.you))
+    print(f"{args.me} says '{msg}' to {args.you}")

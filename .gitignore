@@ -2,11 +2,13 @@
 __pycache__/
 
 # Packages
-/shtab/_dist_ver.py
+/MANIFEST.in
 /*.egg*/
+/shtab/_dist_ver.py
 /build/
 /dist/
 /docs/build/
+/docs/contributing.md
 
 # Unit test / coverage reports
 /.coverage*

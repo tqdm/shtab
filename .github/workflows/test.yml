@@ -2,91 +2,55 @@ name: Test
 on:
   push:
   pull_request:
-  schedule:
-  - cron: '0 9 * * 1'  # M H d m w (Mondays at 9:00)
+  schedule: [{cron: '0 9 * * 1'}]  # M H d m w (Mondays at 9:00)
   workflow_dispatch:
 jobs:
-  check:
-    if: github.event_name != 'pull_request' || !contains('OWNER,MEMBER,COLLABORATOR', github.event.pull_request.author_association)
-    name: Check
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v2
-    - uses: actions/setup-python@v2
-    - name: set PYSHA
-      run: echo "PYSHA=$(python -VV | sha256sum | cut -d' ' -f1)" >> $GITHUB_ENV
-    - uses: actions/cache@v1
-      with:
-        path: ~/.cache/pre-commit
-        key: pre-commit|${{ env.PYSHA }}|${{ hashFiles('.pre-commit-config.yaml') }}
-    - run: pip install -U pre-commit
-    - uses: reviewdog/action-setup@v1
-    - if: github.event_name == 'push' || github.event_name == 'pull_request'
-      name: comment
-      run: |
-        if [[ $EVENT == pull_request ]]; then
-          REPORTER=github-pr-review
-        else
-          REPORTER=github-check
-        fi
-        pre-commit run -a todo | reviewdog -efm="%f:%l: %m" -name=TODO -tee -reporter=$REPORTER -filter-mode nofilter
-        pre-commit run -a flake8 | reviewdog -f=pep8 -name=flake8 -tee -reporter=$REPORTER -filter-mode nofilter
-        pre-commit run -a mypy | reviewdog -efm="%f:%l: %m" -name=mypy -tee -reporter=$REPORTER -filter-mode nofilter
-      env:
-        REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        EVENT: ${{ github.event_name }}
-    - run: pre-commit run -a --show-diff-on-failure
   test:
     if: github.event_name != 'pull_request' || !contains('OWNER,MEMBER,COLLABORATOR', github.event.pull_request.author_association)
     name: Test py${{ matrix.python }}
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python: [3.6, 3.9]
+        python: [3.9, 3.14]
     steps:
-    - uses: actions/checkout@v2
-      with:
-        fetch-depth: 0
-    - uses: actions/setup-python@v2
+    - uses: actions/checkout@v5
+      with: {fetch-depth: 0}
+    - uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.python }}
     - name: Install
-      run: pip install -U -r requirements-dev.txt
+      run: pip install -U -e .[dev]
     - run: pytest
-    - uses: codecov/codecov-action@v1
+    - uses: codecov/codecov-action@v5
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
   deploy:
-    needs: [check, test]
+    needs: test
     name: PyPI Deploy
+    environment: pypi
+    permissions:
+      contents: write
+      id-token: write
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v2
-      with:
-        fetch-depth: 0
-        token: ${{ secrets.GH_TOKEN }}
-    - uses: actions/setup-python@v2
+    - uses: actions/checkout@v5
+      with: {fetch-depth: 0}
+    - uses: actions/setup-python@v6
+      with: {python-version: '3.x'}
     - id: dist
       uses: casperdcl/deploy-pypi@v2
       with:
-        requirements: twine setuptools wheel setuptools_scm[toml]
         build: true
-        password: ${{ secrets.PYPI_TOKEN }}
+        requirements: 'build twine packaging>=24.2' # https://github.com/pypa/twine/issues/1216
         upload: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags') }}
-    - id: meta
-      name: Changelog
-      run: |
-        echo ::set-output name=tag::${GITHUB_REF#refs/tags/}
-        git log --pretty='format:%d%n- %s%n%b---' $(git tag --sort=v:refname | tail -n2 | head -n1)..HEAD > _CHANGES.md
     - if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags')
-      uses: softprops/action-gh-release@v1
+      name: Release
+      run: |
+        changelog=$(git log --pretty='format:%d%n- %s%n%b---' $(git tag --sort=v:refname | tail -n2 | head -n1)..HEAD)
+        tag="${GITHUB_REF#refs/tags/}"
+        gh release create --title "shtab $tag stable" --draft --notes "$changelog" "$tag" dist/${{ steps.dist.outputs.whl }} dist/${{ steps.dist.outputs.targz }}
       env:
-        GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
-      with:
-        name: shtab ${{ steps.meta.outputs.tag }} beta
-        body_path: _CHANGES.md
-        draft: true
-        files: |
-          dist/${{ steps.dist.outputs.whl }}
-          dist/${{ steps.dist.outputs.targz }}
+        GH_TOKEN: ${{ github.token }}
     - name: Docs
       run: |
         pushd docs

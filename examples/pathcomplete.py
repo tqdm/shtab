@@ -23,4 +23,4 @@ def get_main_parser():
 if __name__ == "__main__":
     parser = get_main_parser()
     args = parser.parse_args()
-    print("received <file>=%r --dir=%r" % (args.file, args.dir))
+    print(f"received <file>={args.file!r} --dir={args.dir!r}")

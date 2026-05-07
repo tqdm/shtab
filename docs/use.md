@@ -74,7 +74,7 @@ Below are various examples of enabling `shtab`'s own tab completion scripts.
     ```sh
     mkdir -p ~/.zsh/completions
     fpath=($fpath ~/.zsh/completions)  # must be before `compinit` lines
-    shtab --shell=zsh shtab.main.get_main_parser > ~/.zsh/completions/_shtab
+    shtab --shell=zsh shtab.main.get_main_parser -o ~/.zsh/completions/_shtab
     ```
 
 === "tcsh"
@@ -99,7 +99,7 @@ Below are various examples of enabling `shtab`'s own tab completion scripts.
     ```
 
 !!! tip
-    See the [examples/](https://github.com/iterative/shtab/tree/master/examples)
+    See the [examples/](https://github.com/iterative/shtab/tree/main/examples)
     folder for more.
 
 Any existing `argparse`-based scripts should be supported with minimal effort.
@@ -148,14 +148,14 @@ Assuming this code example is installed in `MY_PROG.command.main`, simply run:
 ## Library Usage
 
 !!! tip
-    See the [examples/](https://github.com/iterative/shtab/tree/master/examples)
+    See the [examples/](https://github.com/iterative/shtab/tree/main/examples)
     folder for more.
 
 Complex projects with subparsers and custom completions for paths matching
 certain patterns (e.g. `--file=*.txt`) are fully supported (see
-[examples/customcomplete.py](https://github.com/iterative/shtab/tree/master/examples/customcomplete.py)
+[examples/customcomplete.py](https://github.com/iterative/shtab/tree/main/examples/customcomplete.py)
 or even
-[iterative/dvc:command/completion.py](https://github.com/iterative/dvc/blob/master/dvc/command/completion.py)
+[iterative/dvc:commands/completion.py](https://github.com/iterative/dvc/blob/main/dvc/commands/completion.py)
 for example).
 
 Add direct support to scripts for a little more configurability:

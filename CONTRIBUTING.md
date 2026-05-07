@@ -6,9 +6,9 @@ When contributing pull requests, it's a good idea to run basic checks locally:
 
 ```bash
 # install development dependencies
-shtab (master)$ pip install pre-commit -r requirements-dev.txt
-shtab (master)$ pre-commit install  # install pre-commit checks
-shtab (master)$ pytest              # run all tests
+shtab (main)$ pip install pre-commit -e ".[dev]"
+shtab (main)$ pre-commit install  # install pre-commit checks
+shtab (main)$ pytest              # run all tests
 ```
 
 ## Layout
@@ -30,10 +30,10 @@ Most of the magic lives in [`shtab/__init__.py`](./shtab/__init__.py).
 
 Given that the number of completions a program may need would likely be less
 than a million, the focus is on readability rather than premature speed
-optimisations. The generated code itself, on the other had, should be fast.
+optimisations. The generated code itself, on the other hand, should be fast.
 
-Helper functions such as `replace_format` allows use of curly braces `{}` in
-string snippets without clashing between Python's `str.format` and shell
+Helper functions such as `replace_format` allow use of curly braces `{}` in
+string snippets without clashes between Python's `str.format` and shell
 parameter expansion.
 
 The generated shell code itself is also meant to be readable.
@@ -44,6 +44,3 @@ Tests and deployment are handled automatically by continuous integration. Simply
 tag a commit `v{major}.{minor}.{patch}` and wait for a draft release to appear
 at <https://github.com/iterative/shtab/releases>. Tidy up the draft's
 description before publishing it.
-
-Note that tagging a release is possible by commenting `/tag vM.m.p HASH` in an
-issue or PR.

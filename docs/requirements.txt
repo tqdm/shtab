@@ -1,6 +1,6 @@
 mkdocs-material
-git+https://github.com/iterative/jsmin@python3-only#egg=jsmin
+git+https://github.com/tqdm/jsmin@fix-pip#egg=jsmin
 mkdocs-minify-plugin
-pydoc-markdown>=4
+pydoc-markdown>=4,!=4.8.0
 pygments
 pymdown-extensions>=9
