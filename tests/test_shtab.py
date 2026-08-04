@@ -292,7 +292,7 @@ def tcsh_candidates(completion, cmdline, cwd):
     script.write_text(completion)
 
     pid, fd = pty.fork()
-    if pid == 0: # child
+    if pid == 0:   # child
         os.chdir(cwd)
         os.environ['TERM'] = 'xterm'
         os.execvp('tcsh', ['tcsh', '-f', '-i'])
@@ -314,10 +314,10 @@ def tcsh_candidates(completion, cmdline, cwd):
         return out.decode('utf-8', 'replace')
 
     try:
-        read()                                              # prompt
+        read()                                 # prompt
         os.write(fd, f"set autolist\nsource {script}\n".encode())
         read()
-        os.write(fd, cmdline.encode() + b"\t")              # `autolist` lists the candidates
+        os.write(fd, cmdline.encode() + b"\t") # `autolist` lists the candidates
         output = re.sub(r"\x1b\[[0-9;]*[A-Za-z]|[\a\r]", "", read())
     finally:
         os.close(fd)
@@ -326,8 +326,8 @@ def tcsh_candidates(completion, cmdline, cwd):
 
     # drop the echoed command line & the re-drawn prompt, leaving the listed candidates
     return [
-        word for line in output.splitlines()
-        if line.strip() and cmdline.strip() not in line for word in line.split()]
+        word for line in output.splitlines() if line.strip() and cmdline.strip() not in line
+        for word in line.split()]
 
 
 @pytest.fixture
