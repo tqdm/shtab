@@ -791,8 +791,12 @@ def complete_tcsh(parser, root_prefix=None, preamble="", choice_functions=None):
                         if complete_fn.startswith('`') and complete_fn.endswith('`'):
                             # nested backticks crash tcsh's parser, use `eval` instead
                             nlist.append(f"if ( {condition} ) eval {complete_fn.strip('`')}")
-                        else:
-                            nlist.append(f"if ( {condition} ) {complete_fn}")
+                        elif nn and idx == len(nn) + 1:
+                            # completion patterns (`f:*.txt`, `d`, ...) are not commands, so
+                            # they can't go in the list below; this slot directly follows a
+                            # (sub)command, so key off that word instead
+                            specials.append(f"'n/{nn[-1]}/{complete_fn}/'")
+                        # else: no way to express a pattern for this slot in tcsh
                 elif arg.choices:
                     nlist.append(f"if ( {condition} ) echo {join(map(str, arg.choices))}")
             if nlist:

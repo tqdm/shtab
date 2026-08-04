@@ -364,6 +364,27 @@ def test_fish_choice_flags():
     assert '-ka "one two" -d \'a word\'' in completion
 
 
+def get_tcsh_pattern_parser():
+    """Two subcommands sharing positional slot 2, one of them `.complete`-ing a pattern."""
+    parser = ArgumentParser(prog="myprog")
+    subparsers = parser.add_subparsers()
+    build = subparsers.add_parser("build", help="build")
+    build.add_argument("cfg", help="config").complete = shtab.glob("*.yml", "*.yaml")
+    run = subparsers.add_parser("run", help="run")
+    run.add_argument("mode", choices=["fast", "slow"], help="mode")
+    return parser
+
+
+def test_tcsh_pattern_in_shared_slot():
+    """Patterns are anchored on the (sub)command: tqdm/shtab#236"""
+    completion = shtab.complete(get_tcsh_pattern_parser(), shell="tcsh")
+    # a pattern is not a command, so it can't go in the `p@2@`...`@` list
+    assert "'n/build/f:{*.yml,*.yaml}/'" in completion
+    assert "f:{*.yml,*.yaml}`" not in completion and ") f:" not in completion
+    # commands & choices still do
+    assert '("$cmd[2]" == "run") ' in completion
+
+
 @fix_shell
 def test_subparser_custom_complete(shell):
     parser = ArgumentParser(prog="test")
