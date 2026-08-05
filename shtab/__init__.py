@@ -458,7 +458,8 @@ ${root_prefix}() {
   # Generate the completions
 
   COMPREPLY=()
-  if [[ $pos_only = 0 && "${completing_word}" == -* ]]; then
+  if [[ $pos_only = 0 && "${completing_word}" == -* &&
+        -z "${current_action_compgen}" ]]; then
     # optional argument started: use option strings
     while IFS= read -r line; do COMPREPLY+=("$line"); done < <(
       compgen -W "${current_option_strings[*]}" -- "${completing_word}")
