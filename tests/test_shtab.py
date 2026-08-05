@@ -603,6 +603,5 @@ def test_bash_path_completion_in_middle_of_command(change_dir):
     parser.add_argument("-w", "--wdir")
     completion = shtab.complete(parser, shell="bash")
     (change_dir / "folder").mkdir()
-    shell = Bash(completion +
-                 "\nCOMP_WORDS=(test -d -w); COMP_CWORD=2; _shtab_test;")
+    shell = Bash(completion + "\nCOMP_WORDS=(test -d -w); COMP_CWORD=2; _shtab_test;")
     shell.test('"${COMPREPLY[@]}" = "folder"')
