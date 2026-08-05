@@ -29,9 +29,10 @@ _SUPPORTED_COMPLETERS: dict[ShellType, Callable] = {}
 CHOICE_FUNCTIONS: dict[str, CompleteType] = {
     "file": {
         "bash": "_shtab_compgen_files", "zsh": "_files", "tcsh": "f",
-        "fish": "(__fish_complete_path)"}, "directory": {
-            "bash": "_shtab_compgen_dirs", "zsh": "_files -/", "tcsh": "d",
-            "fish": "(__fish_complete_directories)"}}
+        "fish": "(__fish_complete_path)", "powershell": "_shtab_powershell_compgen_files"},
+    "directory": {
+        "bash": "_shtab_compgen_dirs", "zsh": "_files -/", "tcsh": "d",
+        "fish": "(__fish_complete_directories)", "powershell": "_shtab_powershell_compgen_dirs"}}
 FILE = CHOICE_FUNCTIONS["file"]
 DIRECTORY = DIR = CHOICE_FUNCTIONS["directory"]
 FLAG_OPTION = (
@@ -59,7 +60,8 @@ def glob(*patterns: str) -> CompleteType:
     return {
         "bash": f"_shtab_pattern_compgen_{sha(patterns)}",
         "zsh": f"_files -g '({'|'.join(patterns)})'", "tcsh": f"f:{{{','.join(patterns)}}}",
-        "fish": f"(_shtab_pattern_compgen_{sha(patterns)})", "preamble": {
+        "fish": f"(_shtab_pattern_compgen_{sha(patterns)})",
+        "powershell": f"_shtab_pattern_compgen_{sha(patterns)}", "preamble": {
             "bash": f"""
 # $1=COMP_WORDS[1]
 _shtab_pattern_compgen_{sha(patterns)}() {{
@@ -76,6 +78,15 @@ function _shtab_pattern_compgen_{sha(patterns)}
   end
   __fish_complete_path "$comp" | string match -e "*/"  # recurse into subdirs
 end
+""", "powershell": f"""
+function _shtab_pattern_compgen_{sha(patterns)} {{
+  param([string]$WordToComplete)
+  Get-ChildItem -Path "$WordToComplete*" `
+  -Include {_powershell_list(patterns)} -File -ErrorAction SilentlyContinue |
+    ForEach-Object {{ $_.Name }}
+  Get-ChildItem -Path "$WordToComplete*" -Directory -ErrorAction SilentlyContinue |
+    ForEach-Object {{ $_.Name + [System.IO.Path]::DirectorySeparatorChar }}
+}}
 """}}
 
 
@@ -88,11 +99,19 @@ def cmd(command: str) -> CompleteType:
     """
     return {
         "bash": f"_shtab_pattern_compgen_{sha(command)}", "zsh": f"($({command}))",
-        "tcsh": f"`{command}`", "fish": f"({command})", "preamble": {
+        "tcsh": f"`{command}`", "fish": f"({command})",
+        "powershell": f"_shtab_pattern_compgen_{sha(command)}", "preamble": {
             "bash": f"""
 # $1=COMP_WORDS[1]
 _shtab_pattern_compgen_{sha(command)}() {{
   compgen -W "$({command})" -- $1
+}}
+""", "powershell": f"""
+function _shtab_pattern_compgen_{abs(hash(command))} {{
+  param([string]$WordToComplete)
+  $items = @(Invoke-Expression {_powershell_escape(command)} 2>$null)
+  $items | ForEach-Object {{ $_.ToString() }} |
+    Where-Object {{ $_ -like "$WordToComplete*" }}
 }}
 """}}
 
@@ -206,6 +225,7 @@ def get_bash_commands(root_parser, root_prefix, choice_functions=None):
       compgens  : list of shtab `.complete` functions corresponding to actions
       choices  : list of choices corresponding to actions
       nargs  : list of number of args allowed for each action (if not 0 or 1)
+      preambles  : list of preamble functions
     """
     choice_type2fn = {k: v["bash"] for k, v in CHOICE_FUNCTIONS.items()}
     if choice_functions:
@@ -1026,11 +1046,314 @@ ${completions}
     )
 
 
+def _powershell_escape(string: str) -> str:
+    """
+    Similar to `shlex.quote`, see:
+    https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/
+    about/about_quoting_rules
+    """
+    s = str(string)
+    for ch in "'\u2018\u2019":
+        s = s.replace(ch, ch * 2)
+    return f"'{s}'"
+
+
+def _powershell_list(items):
+    """Serialize a list of strings to a PowerShell array literal."""
+    escaped = ", ".join(_powershell_escape(i) for i in items)
+    return f"@({escaped})"
+
+
+def _powershell_hashtable(d):
+    """Serialize a dict[str, list[str]] to PowerShell @{} syntax."""
+    if not d:
+        return "@{}"
+    entries = [
+        f"    {_powershell_escape(key)} = {_powershell_list(values)}"
+        for key, values in sorted(d.items())]
+    return "@{\n" + "\n".join(entries) + "\n}"
+
+
+def _powershell_flat_hashtable(d):
+    """Serialize a dict[str, str] to PowerShell @{} syntax."""
+    if not d:
+        return "@{}"
+    entries = [
+        f"    {_powershell_escape(key)} = {_powershell_escape(value)}"
+        for key, value in sorted(d.items())]
+    return "@{\n" + "\n".join(entries) + "\n}"
+
+
+def get_powershell_commands(root_parser, root_prefix, choice_functions=None):
+    """
+    Recursive subcommand parser traversal, returning dicts of information on
+    commands (formatted for output to the PowerShell completions script).
+
+    Returns:
+      subparsers  : dict mapping prefix -> list of subparser names
+      option_strings  : dict mapping prefix -> list of option strings
+      compgens  : dict mapping action key -> completer function name
+      choices  : dict mapping action key -> list of choice strings
+      nargs  : dict mapping action key -> nargs value (string)
+      preambles  : list of preamble functions
+    """
+    choice_type2fn = {k: v["powershell"] for k, v in CHOICE_FUNCTIONS.items()}
+    if choice_functions:
+        choice_type2fn.update(choice_functions)
+    subparsers = {}
+    option_strings = {}
+    compgens = {}
+    choices = {}
+    nargs = {}
+    preambles = []
+
+    def recurse(parser, prefix):
+        discovered_subparsers = []
+        for i, positional in enumerate(parser._get_positional_actions()):
+            action_key = f"{prefix}_pos_{i}"
+            if hasattr(positional, 'complete'):
+                comp_pattern = complete2pattern(positional.complete, 'powershell', choice_type2fn,
+                                                preambles)
+                if comp_pattern:
+                    compgens[action_key] = comp_pattern
+            elif positional.choices:
+                log.debug(f"choices:{prefix}:{sorted(positional.choices)}")
+                this_positional_choices = []
+                for choice in positional.choices:
+                    if isinstance(positional.choices, dict):
+                        log.debug("subcommand:%s", choice)
+                        public_cmds = get_public_subcommands(positional)
+                        if choice in public_cmds:
+                            discovered_subparsers.append(str(choice))
+                            this_positional_choices.append(str(choice))
+                            recurse(positional.choices[choice], f"{prefix}_{wordify(choice)}")
+                        else:
+                            log.debug("skip:subcommand:%s", choice)
+                    else:
+                        this_positional_choices.append(str(choice))
+                if this_positional_choices:
+                    choices[action_key] = this_positional_choices
+            if positional.nargs not in (None, "1", "?"):
+                nargs[action_key] = str(positional.nargs)
+        if discovered_subparsers:
+            subparsers[prefix] = discovered_subparsers
+            log.debug(f"subcommands:{prefix}:{discovered_subparsers}")
+        option_strings[prefix] = sum(
+            (opt.option_strings for opt in parser._get_optional_actions() if opt.help != SUPPRESS),
+            [])
+        for optional in parser._get_optional_actions():
+            if optional == SUPPRESS:
+                continue
+            for option_string in optional.option_strings:
+                opt_key = f"{prefix}_{wordify(option_string)}"
+                if hasattr(optional, 'complete'):
+                    comp_pattern = complete2pattern(optional.complete, 'powershell',
+                                                    choice_type2fn, preambles)
+                    if comp_pattern:
+                        compgens[opt_key] = comp_pattern
+                if optional.choices:
+                    choices[opt_key] = list(map(str, optional.choices))
+                if optional.nargs is not None and optional.nargs != 1:
+                    nargs[opt_key] = str(optional.nargs)
+
+    recurse(root_parser, root_prefix)
+    return subparsers, option_strings, compgens, choices, nargs, preambles
+
+
+@mark_completer("powershell")
+def complete_powershell(parser, root_prefix=None, preamble="", choice_functions=None):
+    """
+    Returns PowerShell syntax autocompletion script.
+
+    See `complete` for arguments.
+    """
+    root_prefix = wordify(f"_shtab_{root_prefix or parser.prog}")
+    (subparsers, option_strings, compgens, choices, nargs,
+     extra_preambles) = get_powershell_commands(parser, root_prefix,
+                                                choice_functions=choice_functions)
+
+    # References:
+    # - https://learn.microsoft.com/en-us/powershell/module/
+    #   microsoft.powershell.core/register-argumentcompleter
+    # - https://learn.microsoft.com/en-us/powershell/scripting/
+    #   learn/shell/tab-completion
+    preamble = "\n".join(list(dict.fromkeys(([preamble] if preamble else []) + extra_preambles)))
+    return Template("""\
+# AUTOMATICALLY GENERATED by https://github.com/tqdm/shtab
+
+${preamble}
+# --- Completion data ---
+$$${root_prefix}_subparsers = ${subparsers_ht}
+$$${root_prefix}_option_strings = ${option_strings_ht}
+$$${root_prefix}_compgens = ${compgens_ht}
+$$${root_prefix}_choices = ${choices_ht}
+$$${root_prefix}_nargs = ${nargs_ht}
+
+# --- Helper functions ---
+
+function _shtab_powershell_compgen_files {
+  param([string]$$WordToComplete)
+  Get-ChildItem -Path "$$WordToComplete*" -File -ErrorAction SilentlyContinue |
+    ForEach-Object { $$_.Name }
+  Get-ChildItem -Path "$$WordToComplete*" -Directory -ErrorAction SilentlyContinue |
+    ForEach-Object { $$_.Name + [System.IO.Path]::DirectorySeparatorChar }
+}
+
+function _shtab_powershell_compgen_dirs {
+  param([string]$$WordToComplete)
+  Get-ChildItem -Path "$$WordToComplete*" -Directory -ErrorAction SilentlyContinue |
+    ForEach-Object { $$_.Name + [System.IO.Path]::DirectorySeparatorChar }
+}
+
+function _shtab_powershell_replace_nonword {
+  param([string]$$Text)
+  $$Text -replace '[^\\w]', '_'
+}
+
+# --- Main completer ---
+
+Register-ArgumentCompleter -Native -CommandName ${prog} -ScriptBlock {
+  param($$wordToComplete, $$commandAst, $$cursorPosition)
+
+  # Tokenize the command line (skip program name)
+  $$allTokens = @()
+  if ($$commandAst.CommandElements.Count -gt 1) {
+    $$allTokens = $$commandAst.CommandElements[1..($$commandAst.CommandElements.Count - 1)] |
+      ForEach-Object { $$_.ToString() }
+  }
+
+  # Determine which tokens are "completed" (before the word being typed)
+  # The last token is the one currently being completed if it matches wordToComplete
+  $$tokens = @()
+  if ($$allTokens.Count -gt 0) {
+    if ($$wordToComplete -and $$allTokens[-1] -eq $$wordToComplete) {
+      if ($$allTokens.Count -gt 1) {
+        $$tokens = $$allTokens[0..($$allTokens.Count - 2)]
+      }
+    } else {
+      $$tokens = $$allTokens
+    }
+  }
+
+  # State tracking
+  $$prefix = '${root_prefix}'
+  $$completedPositionals = 0
+  $$currentActionKey = "$${prefix}_pos_0"
+  $$currentActionNargs = 1
+  $$currentActionArgsConsumed = 0
+  $$currentActionIsPositional = $$true
+  $$posOnly = $$false
+
+  # Helper: look up nargs for a given action key (default 1)
+  function Get-ActionNargs($$actionKey) {
+    $$n = $$${root_prefix}_nargs[$$actionKey]
+    if ($$n) { return $$n } else { return '1' }
+  }
+
+  # Walk completed tokens to determine current parser state
+  foreach ($$token in $$tokens) {
+      if ($$posOnly -or $$token -ne '--') {
+          # Check for subparser match
+          $$currentSubparsers = $$${root_prefix}_subparsers[$$prefix]
+          if ($$currentSubparsers -and $$currentSubparsers -contains $$token) {
+              $$prefix = $$prefix + '_' + (_shtab_powershell_replace_nonword $$token)
+              $$completedPositionals = 0
+              $$currentActionKey = "$${prefix}_pos_0"
+              $$currentActionNargs = Get-ActionNargs $$currentActionKey
+              $$currentActionArgsConsumed = 0
+              $$currentActionIsPositional = $$true
+              continue
+          }
+          # Check for option string match
+          $$currentOptions = $$${root_prefix}_option_strings[$$prefix]
+          if ($$currentOptions -and $$currentOptions -contains $$token) {
+              $$currentActionKey = $$prefix + '_' + (_shtab_powershell_replace_nonword $$token)
+              $$currentActionNargs = Get-ActionNargs $$currentActionKey
+              $$currentActionArgsConsumed = 0
+              $$currentActionIsPositional = $$false
+              continue
+          }
+          # Consume argument for current action
+          $$currentActionArgsConsumed++
+          if ($$currentActionNargs -ne '*' -and
+              $$currentActionNargs -ne '+' -and
+              $$currentActionNargs -ne '?' -and
+              $$currentActionNargs -notlike '*...*') {
+              if ($$currentActionArgsConsumed -ge [int]$$currentActionNargs) {
+                  if ($$currentActionIsPositional) { $$completedPositionals++ }
+                  $$currentActionKey = "$${prefix}_pos_$${completedPositionals}"
+                  $$currentActionNargs = Get-ActionNargs $$currentActionKey
+                  $$currentActionArgsConsumed = 0
+                  $$currentActionIsPositional = $$true
+              }
+          }
+      } else {
+          $$posOnly = $$true
+      }
+  }
+  # --- Generate completions ---
+  if ($$env:SHTAB_DEBUG -eq 'true') {
+    Write-Host "shtab: wordToComplete='$$wordToComplete' prefix='$$prefix' `
+    actionKey='$$currentActionKey' isPositional='$$currentActionIsPositional' posOnly='$$posOnly'"
+  }
+
+  $$completions = @()
+
+  if (-not $$posOnly -and $$wordToComplete -like '-*') {
+    # Complete option strings
+    $$opts = $$${root_prefix}_option_strings[$$prefix]
+    if ($$opts) {
+      $$completions = @($$opts | Where-Object { $$_ -like "$$wordToComplete*" })
+    }
+  } else {
+    # Complete subparsers (only when current action is positional)
+    if ($$currentActionIsPositional) {
+      $$subs = $$${root_prefix}_subparsers[$$prefix]
+      if ($$subs) {
+        $$completions += @($$subs | Where-Object { $$_ -like "$$wordToComplete*" })
+      }
+    }
+
+    # Complete choices for current action (positional or option)
+    $$actionChoices = $$${root_prefix}_choices[$$currentActionKey]
+    if ($$actionChoices) {
+      $$completions += @($$actionChoices | Where-Object { $$_ -like "$$wordToComplete*" })
+    }
+
+    # Complete using compgen function for current action
+    $$actionCompgen = $$${root_prefix}_compgens[$$currentActionKey]
+    if ($$actionCompgen) {
+      $$completions += @(& $$actionCompgen $$wordToComplete)
+    }
+  }
+
+  # Deduplicate and emit CompletionResult objects
+  $$completions | Select-Object -Unique | ForEach-Object {
+    [System.Management.Automation.CompletionResult]::new(
+      $$_,               # completionText
+      $$_,               # listItemText
+      'ParameterValue',  # resultType
+      $$_                # toolTip
+    )
+  }
+}
+""").safe_substitute(
+        subparsers_ht=_powershell_hashtable(subparsers),
+        option_strings_ht=_powershell_hashtable(option_strings),
+        compgens_ht=_powershell_flat_hashtable(compgens),
+        choices_ht=_powershell_hashtable(choices),
+        nargs_ht=_powershell_flat_hashtable(nargs),
+        preamble=f"\n# Custom Preamble\n{preamble}\n# End Custom Preamble\n" if preamble else "",
+        root_prefix=root_prefix,
+        prog=parser.prog,
+    )
+
+
 def complete(parser: ArgumentParser, shell: str = "bash", root_prefix: Opt[str] = None,
              preamble: str = "", choice_functions: Opt[Any] = None) -> str:
     """
     shell:
-      bash/zsh/tcsh/fish
+      bash/zsh/tcsh/fish/powershell
     root_prefix:
       prefix for shell functions to avoid clashes (default: "_{parser.prog}")
     preamble:

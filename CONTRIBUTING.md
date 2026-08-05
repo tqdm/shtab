@@ -21,6 +21,7 @@ Most of the magic lives in [`shtab/__init__.py`](./shtab/__init__.py).
     - `complete_zsh()`
     - `complete_tcsh()`
     - `complete_fish()`
+    - `complete_powershell()`
     - ...
     - `add_argument_to()` - convenience function for library integration
     - `Optional()`, `Required()`, `Choice()` - legacy helpers for advanced completion (e.g. dirs, files, `*.txt`)

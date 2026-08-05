@@ -82,7 +82,8 @@ def test_main_self_completion(shell, capsys):
     assert not captured.err
     expected = {
         "bash": "complete -o filenames -F _shtab_shtab shtab", "zsh": "_shtab_shtab_commands()",
-        "tcsh": "complete shtab", "fish": "complete -c shtab"}
+        "tcsh": "complete shtab", "fish": "complete -c shtab",
+        "powershell": "Register-ArgumentCompleter -Native -CommandName shtab"}
     assert expected[shell] in captured.out
 
 
@@ -98,7 +99,9 @@ def test_main_output_path(shell, capsys, change_dir, output):
     assert not captured.err
     expected = {
         "bash": "complete -o filenames -F _shtab_shtab shtab", "zsh": "_shtab_shtab_commands()",
-        "tcsh": "complete shtab", "fish": "complete -c shtab"}
+        "tcsh": "complete shtab", "fish": "complete -c shtab",
+        "powershell": "Register-ArgumentCompleter -Native -CommandName shtab"}
+
     if output in ("-", "stdout"):
         assert expected[shell] in captured.out
     else:
@@ -139,7 +142,7 @@ def test_prog_scripts(shell, capsys):
             'complete -c script.py -e', 'complete -c script.py -f',
             f"{start} -s h -l help -d 'show this help message and exit'",
             f"{start} -l version -d 'show program'\"'\"'s version number and exit'",
-            f'{start} -s s -l shell -xka "bash zsh tcsh fish"',
+            f'{start} -s s -l shell -xka "bash zsh tcsh fish powershell"',
             f"{start} -s o -l output -x -d 'output file (- for stdout)'",
             f"{start} -l prefix -x -d 'prepended to generated functions to avoid clashes'",
             f"{start} -l preamble -x -d 'prepended to generated script'",
@@ -147,8 +150,11 @@ def test_prog_scripts(shell, capsys):
             f"{start} -s u -l error-unimportable -d"
             " 'raise errors if `parser` is not found in $PYTHONPATH'",
             f"{start} -l verbose -d 'Log debug information'",
-            f'{start} -l print-own-completion -xka "bash zsh tcsh fish" -d'
+            f'{start} -l print-own-completion -xka "bash zsh tcsh fish powershell" -d'
             " 'print shtab'\"'\"'s own completion'"]
+    elif shell == "powershell":
+        assert script_py == [
+            "Register-ArgumentCompleter -Native -CommandName script.py -ScriptBlock {"]
     else:
         raise NotImplementedError(shell)
 

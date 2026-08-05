@@ -7,8 +7,8 @@ There are two ways of using `shtab`:
     - end-users execute `shtab your_cli_app.your_parser_object`
 - [Library Usage](#library-usage): as a library integrated into your CLI application
     - adds a couple of lines to your application
-    - argument mode: end-users execute `your_cli_app --print-completion {bash,zsh,tcsh}`
-    - subparser mode: end-users execute `your_cli_app completion {bash,zsh,tcsh}`
+    - argument mode: end-users execute `your_cli_app --print-completion {bash,zsh,tcsh,fish,powershell}`
+    - subparser mode: end-users execute `your_cli_app completion {bash,zsh,tcsh,fish,powershell}`
 
 ## CLI Usage
 
@@ -108,6 +108,31 @@ Below are various examples of enabling `shtab`'s own tab completion scripts.
     # Install system-wide
     shtab -u --shell=fish shtab.main.get_main_parser \
       | sudo tee /usr/share/fish/vendor_completions.d/shtab.fish
+
+=== "powershell"
+
+    ```powershell
+    shtab --shell=powershell shtab.main.get_main_parser --error-unimportable `
+      | Out-File -FilePath ~\shtab_completion.ps1
+    . ~\shtab_completion.ps1
+    ```
+
+    Eager:
+
+    Add the following to your PowerShell profile (`$PROFILE`):
+
+    ```powershell
+    shtab --shell=powershell shtab.main.get_main_parser `
+      | Out-String | Invoke-Expression
+    ```
+
+    Or save to a file and dot-source it from your profile:
+
+    ```powershell
+    shtab --shell=powershell shtab.main.get_main_parser `
+      | Out-File -FilePath ~\shtab_completion.ps1
+    # Add to $PROFILE:
+    . ~\shtab_completion.ps1
     ```
 
 !!! tip
@@ -162,6 +187,13 @@ Assuming this code example is installed in `MY_PROG.command.main`, simply run:
     ```sh
     shtab --shell=fish -u MY_PROG.command.main.get_main_parser \
       | sudo tee /usr/share/fish/vendor_completions.d/MY_PROG.fish
+
+=== "powershell"
+
+    ```powershell
+    shtab --shell=powershell -u MY_PROG.command.main.get_main_parser `
+      | Out-File -FilePath ~\MY_PROG_completion.ps1
+    . ~\MY_PROG_completion.ps1
     ```
 
 ## Library Usage
