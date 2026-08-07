@@ -87,7 +87,7 @@ def test_main_self_completion(shell, capsys):
     captured = capsys.readouterr()
     assert not captured.err
     expected = {
-        'bash': "complete -o filenames -F _shtab_shtab shtab", 'zsh': "_shtab_shtab_commands()",
+        'bash': "complete -F _shtab_shtab shtab", 'zsh': "_shtab_shtab_commands()",
         'tcsh': "complete shtab", 'fish': "complete -c shtab"}
     assert expected[shell] in captured.out
 
@@ -100,7 +100,7 @@ def test_main_output_path(shell, capsys, change_dir, output):
     captured = capsys.readouterr()
     assert not captured.err
     expected = {
-        'bash': "complete -o filenames -F _shtab_shtab shtab", 'zsh': "_shtab_shtab_commands()",
+        'bash': "complete -F _shtab_shtab shtab", 'zsh': "_shtab_shtab_commands()",
         'tcsh': "complete shtab", 'fish': "complete -c shtab"}
     if output in ("-", "stdout"):
         assert expected[shell] in captured.out
@@ -115,7 +115,7 @@ def test_prog_override(shell, capsys):
     captured = capsys.readouterr()
     assert not captured.err
     if shell == 'bash':
-        assert "complete -o filenames -F _shtab_shtab foo" in captured.out
+        assert "complete -F _shtab_shtab foo" in captured.out
     else:
         pytest.skip("WiP")
 
@@ -128,7 +128,7 @@ def test_prog_scripts(shell, capsys):
     assert not captured.err
     script_py = [i.strip() for i in captured.out.splitlines() if "script.py" in i]
     if shell == 'bash':
-        assert script_py == ["complete -o filenames -F _shtab_shtab script.py"]
+        assert script_py == ["complete -F _shtab_shtab script.py"]
     elif shell == 'zsh':
         assert script_py == [
             "#compdef script.py", "_describe 'script.py commands' _commands",
@@ -407,6 +407,84 @@ def test_file_completion(shell, change_dir, test_parser):
         assert len(candidates) == 1
     else:
         raise NotImplementedError(completion)
+
+
+def bash_completed_line(completion, cmdline, cwd):
+    """
+    Source `completion` in an interactive bash, type `cmdline` followed by <TAB>,
+    and return the resulting command line after readline inserted the completion.
+
+    Needed since readline's post-processing (e.g. `-o filenames` appending `/` to
+    dirs) happens after `COMPREPLY` and is thus invisible to `compgen`-based tests.
+    """
+    script = cwd / "completion.bash"
+    script.write_text(completion)
+    prompt = "|bashtest|"
+    pid, fd = pty.fork()
+    if pid == 0:   # child
+        os.chdir(cwd)
+        os.environ['TERM'] = 'dumb'
+        os.environ['COLUMNS'] = '999'
+        os.execvp('bash', ['bash', '--norc', '--noprofile', '-i'])
+    output = ""
+
+    def clean(chunk):
+        return re.sub(r"\x1b\[[0-9;?]*[A-Za-z]|[\a\r\b]", "", chunk.decode('utf-8', 'replace'))
+
+    def read(condition, timeout=10.0):
+        """Read until `condition()` (or `timeout` elapses), then drain."""
+        nonlocal output
+        deadline = time.time() + timeout
+        while not condition() and time.time() < deadline:
+            if select.select([fd], [], [], 0.1)[0]:
+                try:
+                    chunk = os.read(fd, 1 << 16)
+                except OSError:
+                    break
+                if not chunk:
+                    break
+                output += clean(chunk)
+        while select.select([fd], [], [], 0.3)[0]:
+            try:
+                chunk = os.read(fd, 1 << 16)
+            except OSError:
+                break
+            if not chunk:
+                break
+            output += clean(chunk)
+
+    try:
+        os.write(fd, f"source {script}; PS1='{prompt}'\n".encode())
+        read(lambda: output.count(prompt) >= 1)
+        seen = len(output)
+        os.write(fd, cmdline.encode() + b"\t")
+        # the typed line is echoed back, followed by whatever readline inserted
+        read(lambda: cmdline in output[seen:])
+        completed = output[seen:]
+        os.write(fd, b"\x15exit\n") # discard the line & quit
+        read(lambda: True)
+    finally:
+        os.close(fd)
+        os.kill(pid, signal.SIGKILL)
+        os.waitpid(pid, 0)
+    return completed
+
+
+def test_bash_subcommand_dir_collision(change_dir, test_parser):
+    """Subcommands matching a dir name must not gain a trailing slash (#67)"""
+    if subprocess.call(['bash', '-c', 'type compopt'], stdout=subprocess.DEVNULL,
+                       stderr=subprocess.DEVNULL):
+        pytest.skip("bash without compopt")
+    (change_dir / "create").mkdir()
+    (change_dir / "subdir").mkdir()
+    completion = complete(test_parser, 'bash')
+    assert "complete -F _shtab_myprog myprog" in completion, \
+        "`-o filenames` must not apply readline filename post-processing globally"
+    line = bash_completed_line(completion, "myprog cre", change_dir)
+    assert line == "myprog create ", "subcommand was completed like a directory"
+    # dir/file completions must still get filename treatment (trailing `/` on dirs)
+    line = bash_completed_line(completion, "myprog create alpha sub", change_dir)
+    assert line == "myprog create alpha subdir/"
 
 
 def test_fish_global_option_value(test_parser):

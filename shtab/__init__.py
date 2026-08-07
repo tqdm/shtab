@@ -464,12 +464,17 @@ ${root_prefix}() {
       compgen -W "${current_option_strings[*]}" -- "${completing_word}")
   elif [[ "${previous_word}" =~ ^[0-9\\&]*[\\<\\>]\\>?$ ]]; then
     # handle redirection operators
+    compopt -o filenames 2>/dev/null || : # bash >= 4.0; no-op outside completion
     while IFS= read -r line; do COMPREPLY+=("$line"); done < <(compgen -f -- "${completing_word}")
   else
     # use choices & compgen
-    [ -n "${current_action_compgen}" ] &&
+    [ -n "${current_action_compgen}" ] && {
+      # only apply filename post-processing (append `/` to dirs, escaping) here,
+      # so that e.g. subcommands matching a dir name don't gain a trailing `/` (#67)
+      compopt -o filenames 2>/dev/null || : # bash >= 4.0; no-op outside completion
       while IFS= read -r line; do COMPREPLY+=("$line"); done < <(
         "${current_action_compgen}" "${completing_word}")
+    }
     while IFS= read -r line; do COMPREPLY+=("$line"); done < <(
       compgen -W "${current_action_choices[*]}" -- "${completing_word}")
   fi
@@ -477,7 +482,7 @@ ${root_prefix}() {
   return 0
 }
 
-complete -o filenames -F ${root_prefix} ${prog}""").safe_substitute(
+complete -F ${root_prefix} ${prog}""").safe_substitute(
         subparsers="\n".join(subparsers),
         option_strings="\n".join(option_strings),
         compgens="\n".join(compgens),
