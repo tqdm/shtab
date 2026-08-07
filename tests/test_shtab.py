@@ -4,11 +4,16 @@ import os
 import pty
 import re
 import select
+import shlex
 import shutil
 import signal
 import subprocess
+import tempfile
 import time
 from argparse import SUPPRESS, Action, ArgumentParser
+from contextlib import contextmanager
+from functools import partial
+from pathlib import Path
 
 import pytest
 
@@ -25,39 +30,191 @@ def complete(parser, shell, **kwargs):
     return completion
 
 
-class Bash:
-    def __init__(self, init_script=""):
-        self.init = init_script
+# --- exec framework: run a generated completion in its shell & read back the candidates ---
 
-    def test(self, cmd="1", failure_message=""):
-        """Equivalent to `bash -c '{init}; [[ {cmd} ]]'`."""
-        init = self.init + "\n" if self.init else ""
-        proc = subprocess.Popen(['bash', '-o', 'pipefail', '-euc', f"{init}[[ {cmd} ]]"],
-                                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-        stdout, stderr = proc.communicate()
-        assert (0 == proc.wait() and stdout == "" and stderr == ""), f"""\
-{failure_message}
-{cmd}
-=== stdout ===
-{stdout}=== stderr ===
-{stderr}"""
-
-    def compgen(self, compgen_cmd, word, expected_completions, failure_message=""):
-        self.test(
-            f'"$(echo $(compgen {compgen_cmd} -- "{word}"))" = "{expected_completions}"',
-            failure_message,
-        )
+PROMPT = "|candidates|"
+# `\x18\x0c` is `^X^L` (bound below), `\x15` is `^U` (discard the line)
+LIST_KEYS = {'zsh': b"\x18\x0c", 'tcsh': b"\x04"}
+# bash splits `COMP_LINE` on whitespace *and* on each of these, keeping them as words
+COMP_WORDBREAKS = " \t\n\"'><=;|&(:"
 
 
-@pytest.mark.parametrize("init,test", [("export FOO=1", '"$FOO" -eq 1'), ("", '-z "${FOO-}"')])
-def test_bash(init, test):
-    shell = Bash(init)
-    shell.test(test)
+def comp_words(cmdline):
+    """Split `cmdline` into bash's `(COMP_WORDS, COMP_CWORD)` (see `COMP_WORDBREAKS`)."""
+    words, word = [], ""
+    for char in cmdline:
+        if char in COMP_WORDBREAKS:
+            if word:
+                words.append(word)
+                word = ""
+            if char not in " \t\n":
+                words.append(char)
+        else:
+            word += char
+    if word:
+        words.append(word)
+    if not cmdline or cmdline[-1] in " \t\n":
+        words.append("") # the (empty) word the cursor sits on
+    return words, len(words) - 1
 
 
-def test_bash_compgen():
-    shell = Bash()
-    shell.compgen('-W "foo bar foobar"', "f", "foo foobar")
+def bash_candidates(completion, cmdlines, cwd=None):
+    """Source `completion` in bash, then return the candidates offered for each of `cmdlines`."""
+    func = re.search(r"^complete .*-F (\S+) ", completion, flags=re.M).group(1)
+    result = []
+    for cmdline in cmdlines:
+        words, cword = comp_words(cmdline)
+        driver = f"""
+COMP_LINE={shlex.quote(cmdline)}
+COMP_POINT=${{#COMP_LINE}}
+COMP_WORDS=({" ".join(map(shlex.quote, words))})
+COMP_CWORD={cword}
+COMPREPLY=()
+{func}
+printf '%s\\n' "${{COMPREPLY[@]}}\""""
+        proc = subprocess.run(['bash', '-o', 'pipefail', '-uc', completion + driver], cwd=cwd,
+                              capture_output=True, text=True)
+        assert not proc.stderr, proc.stderr
+        result.append([line for line in proc.stdout.splitlines() if line.strip()])
+    return result
+
+
+def fish_candidates(completion, cmdlines, cwd=None):
+    """Source `completion` in fish, then return the candidates offered for each of `cmdlines`."""
+    if not shutil.which('fish'):
+        pytest.skip("fish not available")
+    result = []
+    for cmdline in cmdlines:
+        quoted = "'" + cmdline.replace("\\", "\\\\").replace("'", "\\'") + "'"
+        out = subprocess.check_output(['fish', '-c', f"{completion}\ncomplete -C{quoted}"],
+                                      cwd=cwd, text=True)
+        # each output line is "candidate<TAB>description" (or just "candidate")
+        result.append([line.split("\t")[0] for line in out.splitlines() if line.strip()])
+    return result
+
+
+def pty_candidates(shell, setup, cmdlines, cwd):
+    """
+    Return the candidates `shell` offers for each of `cmdlines`.
+
+    Neither zsh nor tcsh has a `complete -C` equivalent, so drive an interactive one through
+    a pty: type the command line, press the shell's list key, then `^U` to discard the line.
+    `setup` must end up setting the prompt to `PROMPT`.
+    """
+    if not shutil.which(shell):
+        pytest.skip(f"{shell} not available")
+    pid, fd = pty.fork()
+    if pid == 0:   # child
+        os.chdir(cwd)
+        os.environ['TERM'] = 'xterm'
+        os.environ['COLUMNS'] = '999'
+        os.execvp(shell, [shell, '-f', '-i'])
+    output = ""
+
+    def read(prompts, timeout=10.0):
+        """Read until the prompt has been seen `prompts` times (or `timeout` elapses)."""
+        nonlocal output
+        strip = r"\x1b\[[0-9;?]*[A-Za-z]|\x1b[=>]|[\a\r\b]"
+        deadline = time.time() + timeout
+        while output.count(PROMPT) < prompts and time.time() < deadline:
+            if select.select([fd], [], [], 0.1)[0]:
+                try:
+                    chunk = os.read(fd, 1 << 16)
+                except OSError:
+                    break
+                if not chunk:
+                    break
+                output += re.sub(strip, "", chunk.decode('utf-8', 'replace'))
+        # a command just finished, give the shell a moment to enable its line editor again
+        while select.select([fd], [], [], 0.2)[0]:
+            output += re.sub(strip, "", os.read(fd, 1 << 16).decode('utf-8', 'replace'))
+        return output
+
+    result = []
+    try:
+        os.write(fd, setup.encode())
+        read(1)
+        for cmdline in cmdlines:
+            seen = len(output)
+            os.write(fd, cmdline.encode() + LIST_KEYS[shell] + b"\x15\n")
+            chunk = read(output.count(PROMPT) + 1)[seen:].replace(PROMPT, "\n")
+            # drop the echoed command line, the re-drawn prompt and zsh's partial-line marker,
+            # leaving the listed candidates
+            result.append([
+                word for line in chunk.splitlines()
+                if line.strip() not in ("", "%") and cmdline.strip() not in line
+                for word in line.split()])
+    finally:
+        os.close(fd)
+        os.kill(pid, signal.SIGKILL)
+        os.waitpid(pid, 0)
+    return result
+
+
+def zsh_candidates(completion, cmdlines, cwd=None):
+    """Load `completion` in zsh, then return the candidates offered for each of `cmdlines`."""
+    with script_file(completion, 'zsh') as script:
+        setup = f"""autoload -Uz compinit; compinit -u
+eval "$(<{script})"
+unsetopt alwayslastprompt menucomplete automenu
+zstyle ':completion:*' menu no
+zstyle ':completion:*' verbose no
+_shtab_list_only() {{ compstate[insert]=''; compstate[list]='list force'; _main_complete }}
+zle -C shtab-list-only complete-word _shtab_list_only
+bindkey '^X^L' shtab-list-only
+PROMPT="{PROMPT[:6]}""{PROMPT[6:]}"
+"""
+        return pty_candidates('zsh', setup, cmdlines, cwd or os.getcwd())
+
+
+def tcsh_candidates(completion, cmdlines, cwd=None):
+    """Source `completion` in tcsh, then return the candidates offered for each of `cmdlines`."""
+    with script_file(completion, 'tcsh') as script:
+        # `^D` (`list-choices`) lists the candidates without inserting even a unique match
+        setup = f"""set ignoreeof
+source {script}
+set prompt="{PROMPT[:6]}""{PROMPT[6:]}"
+"""
+        return pty_candidates('tcsh', setup, cmdlines, cwd or os.getcwd())
+
+
+@contextmanager
+def script_file(completion, shell):
+    """`completion` as a file outside `cwd`, so it is not itself a file completion candidate."""
+    with tempfile.TemporaryDirectory() as tmp:
+        script = Path(tmp) / f"completion.{shell}"
+        script.write_text(completion)
+        yield script
+
+
+shell_candidates = {
+    'bash': bash_candidates, 'zsh': zsh_candidates, 'tcsh': tcsh_candidates,
+    'fish': fish_candidates}
+
+
+def candidates(shell, completion, cmdline, cwd=None):
+    """Return the completion candidates `shell` offers for `cmdline`."""
+    return shell_candidates[shell](completion, [cmdline], cwd)[0]
+
+
+def plain(found):
+    """Sorted candidates without the trailing `/` some shells add to directories."""
+    return sorted(candidate.rstrip("/") for candidate in found)
+
+
+def expected_options(shell, *options):
+    """tcsh completes the text *after* the `--`, so its candidates omit the leading dashes."""
+    return [option.lstrip("-") if shell == 'tcsh' else option for option in options]
+
+
+@fix_shell
+def test_candidates(shell, change_dir):
+    """The exec framework itself: every shell must agree on a trivial completion."""
+    parser = ArgumentParser(prog="myprog")
+    parser.add_argument("posA", choices=["foo", "bar", "foobar"])
+    completion = complete(parser, shell)
+    assert candidates(shell, completion, "myprog f", change_dir) == ["foo", "foobar"]
+    assert candidates(shell, completion, "myprog foob", change_dir) == ["foobar"]
 
 
 def test_choices():
@@ -110,14 +267,14 @@ def test_main_output_path(shell, capsys, change_dir, output):
 
 
 @fix_shell
-def test_prog_override(shell, capsys):
+def test_prog_override(shell, capsys, change_dir):
     main(["-s", shell, "--prog", "foo", "shtab.main.get_main_parser"])
     captured = capsys.readouterr()
     assert not captured.err
     if shell == 'bash':
         assert "complete -o filenames -F _shtab_shtab foo" in captured.out
-    else:
-        pytest.skip("WiP")
+    # the completion is registered for `foo`, not for `shtab`
+    assert candidates(shell, captured.out, "foo --h") == expected_options(shell, "--help")
 
 
 @fix_shell
@@ -159,44 +316,32 @@ def test_prog_scripts(shell, capsys):
 
 
 @fix_shell
-def test_prefix_override(shell, capsys):
+def test_prefix_override(shell, capsys, change_dir):
     main(["-s", shell, "--prefix", "foo", "shtab.main.get_main_parser"])
     captured = capsys.readouterr()
     assert not captured.err
-    if shell == 'bash':
-        shell = Bash(captured.out)
-        shell.compgen('-W "${_shtab_foo_option_strings[*]}"', "--h", "--help")
-    else:
-        pytest.skip("WiP")
+    assert candidates(shell, captured.out, "shtab --h") == expected_options(shell, "--help")
 
 
 @fix_shell
-def test_complete(shell):
+def test_complete(shell, change_dir):
     parser = get_main_parser()
     completion = complete(parser, shell)
-    if shell == 'bash':
-        shell = Bash(completion)
-        shell.compgen('-W "${_shtab_shtab_option_strings[*]}"', "--h", "--help")
-    else:
-        pytest.skip("WiP")
+    assert candidates(shell, completion, "shtab --h") == expected_options(shell, "--help")
 
 
 @fix_shell
-def test_positional_choices(shell):
+def test_positional_choices(shell, change_dir):
     parser = ArgumentParser(prog="test")
     parser.add_argument("posA", choices=["one", "two"])
     parser.add_argument("posB", choices=["BAA"]).complete = shtab.cmd("echo BZZ")
     completion = complete(parser, shell)
     assert "BAA" not in completion and "BZZ" in completion, ".complete should override choices"
-    if shell == 'bash':
-        shell = Bash(completion)
-        shell.compgen('-W "$_shtab_test_pos_0_choices"', "o", "one")
-    else:
-        pytest.skip("WiP")
+    assert candidates(shell, completion, "test o") == ["one"]
 
 
 @fix_shell
-def test_custom_complete(shell):
+def test_custom_complete(shell, change_dir):
     parser = ArgumentParser(prog="test")
     _complete = parser.add_argument("posA").complete = {
         'bash': "_shtab_test_some_func", 'fish': "(_shtab_test_some_func)"}
@@ -208,40 +353,35 @@ def test_custom_complete(shell):
     _complete['preamble'] = preamble
     completion = complete(parser, shell)
     assert completion == completion_deprecated
-    if shell == 'bash':
-        shell = Bash(completion)
-        shell.test('"$($_shtab_test_pos_0_COMPGEN o)" = "one"')
-    elif shell == 'fish':
-        assert fish_candidates(completion, "test o") == ["one"]
-    else:
-        pytest.skip("WiP")
+    if shell in ('zsh', 'tcsh'):
+        pytest.skip("no custom completer defined for this shell")
+    assert candidates(shell, completion, "test o") == ["one"]
 
 
-def zsh_specs(completion, name, tmp_path):
+def zsh_specs(completion, name):
     """`zsh -n` the completion, then return the values zsh assigns to array `name`."""
     if not shutil.which('zsh'):
         pytest.skip("zsh not available")
     subprocess.check_call(['zsh', '-nc', completion])
-    script = tmp_path / "completion.zsh"
-    script.write_text(completion)
-    # `eval` so the script registers itself rather than running `compdef` (unavailable here)
-    values = subprocess.check_output(
-        ['zsh', '-f', '-c', f'eval "$(<{script})" 2>/dev/null; print -rl -- "${{(@){name}}}"'],
-        text=True)
+    with script_file(completion, 'zsh') as script:
+        # `eval` so the script registers itself rather than running `compdef` (unavailable here)
+        values = subprocess.check_output(
+            ['zsh', '-f', '-c', f'eval "$(<{script})" 2>/dev/null; print -rl -- "${{(@){name}}}"'],
+            text=True)
     return values.splitlines()
 
 
 @pytest.mark.parametrize("help_text", [
     "plain help", "don't do this", "e.g. '>size_added,path'", 'a "quoted" value',
     "cost: $5 (100%%) `tick`"])
-def test_zsh_help_quoting(help_text, tmp_path):
+def test_zsh_help_quoting(help_text):
     """Help must not gain stray quotes (#224)"""
     parser = ArgumentParser(prog="test", add_help=False)
     parser.add_argument("--opt", help=help_text)
     completion = complete(parser, 'zsh')
     assert "'\"'\"'" not in completion, ("`shlex.quote`'s `'\"'\"'` idiom is invalid"
                                          " inside the double-quoted specs")
-    specs = zsh_specs(completion, "_shtab_test_options", tmp_path)
+    specs = zsh_specs(completion, "_shtab_test_options")
     assert len(specs) == 1, f"quoting split the spec into {len(specs)} words: {specs}"
     # `_arguments` strips the backslashes; what must not appear is *extra* quotes
     assert specs[0].count("'") == help_text.count("'")
@@ -249,22 +389,16 @@ def test_zsh_help_quoting(help_text, tmp_path):
 
 
 @fix_shell
-def test_non_sequence_choices(shell, tmp_path):
+def test_non_sequence_choices(shell, change_dir):
     parser = ArgumentParser(prog="myprog", add_help=False)
     parser.add_argument("--mapping", choices={"one": 1, "two": 2})
     parser.add_argument("posA", choices={"three"})
     completion = complete(parser, shell)
-    if shell == 'bash':
-        shell = Bash(completion)
-        shell.compgen('-W "${_shtab_myprog_pos_0_choices[*]}"', "t", "three")
-    elif shell == 'zsh':
-        specs = zsh_specs(completion, "_shtab_myprog_options", tmp_path)
+    if shell == 'zsh': # the spec is what carries the choices; check it too
+        specs = zsh_specs(completion, "_shtab_myprog_options")
         assert specs == ["--mapping[]:mapping:(one two)", ":posA:(three)"]
-    elif shell == 'fish':
-        assert fish_candidates(completion, "myprog t") == ["three"]
-        assert fish_candidates(completion, "myprog --mapping t") == ["two"]
-    else:
-        pytest.skip("WiP")
+    assert candidates(shell, completion, "myprog t") == ["three"]
+    assert candidates(shell, completion, "myprog --mapping t") == ["two"]
 
 
 def test_zsh_remainder_custom_complete_has_optional_message_colon():
@@ -289,78 +423,6 @@ def test_zsh_custom_action_nargs_zero_takes_no_argument():
     assert '{--help,-h}"[Helpy]:help:"' not in completion
 
 
-def fish_candidates(completion, cmdline):
-    """Source `completion` in fish, then return the completion candidates for `cmdline`."""
-    if not shutil.which('fish'):
-        pytest.skip("fish not available")
-    quoted = "'" + cmdline.replace("\\", "\\\\").replace("'", "\\'") + "'"
-    proc = subprocess.check_output(['fish', '-c', f"{completion}\ncomplete -C{quoted}"], text=True)
-    # each output line is "candidate<TAB>description" (or just "candidate")
-    return [line.split("\t")[0] for line in proc.splitlines() if line.strip()]
-
-
-def tcsh_candidates(completion, cmdlines, cwd):
-    """
-    Return the completion candidates tcsh offers for each of `cmdlines`.
-
-    tcsh has no `complete -C` equivalent, so drive an interactive one through a pty.
-    """
-    if not shutil.which('tcsh'):
-        pytest.skip("tcsh not available")
-    script = cwd / "completion.tcsh"
-    script.write_text(completion)
-    prompt = "|candidates|"
-    # tcsh echoes what is typed, so the command setting the prompt must not contain it verbatim
-    set_prompt = f'set prompt="{prompt[:6]}""{prompt[6:]}"'
-
-    pid, fd = pty.fork()
-    if pid == 0:   # child
-        os.chdir(cwd)
-        os.environ['TERM'] = 'xterm'
-        os.environ['COLUMNS'] = '999'
-        os.execvp('tcsh', ['tcsh', '-f', '-i'])
-    output = ""
-
-    def read(prompts, timeout=10.0):
-        """Read until the prompt has been seen `prompts` times (or `timeout` elapses)."""
-        nonlocal output
-        deadline = time.time() + timeout
-        while output.count(prompt) < prompts and time.time() < deadline:
-            if select.select([fd], [], [], 0.1)[0]:
-                try:
-                    chunk = os.read(fd, 1 << 16)
-                except OSError:
-                    break
-                if not chunk:
-                    break
-                output += re.sub(r"\x1b\[[0-9;]*[A-Za-z]|[\a\r\b]", "",
-                                 chunk.decode('utf-8', 'replace'))
-        # a command just finished, give tcsh a moment to enable its line editor again
-        while select.select([fd], [], [], 0.2)[0]:
-            output += re.sub(r"\x1b\[[0-9;]*[A-Za-z]|[\a\r\b]", "",
-                             os.read(fd, 1 << 16).decode('utf-8', 'replace'))
-        return output
-
-    candidates = []
-    try:
-        os.write(fd, f"set autolist\nsource {script}\n{set_prompt}\n".encode())
-        read(1)
-        for cmdline in cmdlines:
-            seen = len(output)
-            # `autolist` lists the candidates, ^U then discards the line, \n asks for a new prompt
-            os.write(fd, cmdline.encode() + b"\t\x15\n")
-            chunk = read(output.count(prompt) + 1)[seen:].replace(prompt, "\n")
-            # drop the echoed command line & the re-drawn prompt, leaving the listed candidates
-            candidates.append([
-                word for line in chunk.splitlines() if line.strip() and cmdline.strip() not in line
-                for word in line.split()])
-    finally:
-        os.close(fd)
-        os.kill(pid, signal.SIGKILL)
-        os.waitpid(pid, 0)
-    return candidates
-
-
 @pytest.fixture
 def test_parser():
     # NOTE: `prog="test"` fails on fish<4 due to autoloading of builtin `complete -c test -e`
@@ -381,57 +443,59 @@ def test_parser():
 @fix_shell
 def test_file_completion(shell, change_dir, test_parser):
     (change_dir / "test_file.txt").touch()
+    (change_dir / "subdir").mkdir()
+    (change_dir / "subdir" / "nested.txt").touch()
     completion = complete(test_parser, shell)
-    if shell == 'bash':
-        shell = Bash(completion)
-        shell.test('"$($_shtab_myprog_create_pos_1_COMPGEN test_)" = test_file.txt')
-    elif shell == 'zsh':
-        specs = zsh_specs(completion, "_shtab_myprog_create_options", change_dir)
+    if shell == 'zsh': # `_files` is what does the work, so check the spec too
+        specs = zsh_specs(completion, "_shtab_myprog_create_options")
         assert "(*)::paths to add:_files" in specs
-    elif shell == 'tcsh':
-        command_lines = ["myprog create --exclude-from ", "myprog --repo test_"]
-        candidates = tcsh_candidates(completion, command_lines, change_dir)
-        assert candidates == [["completion.tcsh", "test_file.txt"], []]
-    elif shell == 'fish':
-        assert fish_candidates(completion, "myprog create alpha test_") == ["test_file.txt"]
-        assert fish_candidates(completion, "myprog create --exclude-from ") == ["test_file.txt"]
-        assert not fish_candidates(completion, "myprog delete test_")
-        assert not fish_candidates(completion, "myprog --repo test_")
-        (change_dir / "subdir").mkdir()
-        (change_dir / "subdir" / "nested.txt").touch()
-        assert fish_candidates(completion,
-                               "myprog create alpha subdir/nes") == ["subdir/nested.txt"]
-        absolute = change_dir / "subdir" / "nes"
-        candidates = fish_candidates(completion, f"myprog create --exclude-from {absolute}")
-        assert candidates[0].endswith("subdir/nested.txt")
-        assert len(candidates) == 1
-    else:
-        raise NotImplementedError(completion)
+    files = partial(candidates, shell, completion, cwd=change_dir)
+    assert files("myprog create alpha test_") == ["test_file.txt"]
+    assert plain(files("myprog create --exclude-from ")) == ["subdir", "test_file.txt"]
+
+    # only `--exclude-from` and `paths` complete files
+    assert not files("myprog delete test_")
+    assert not files("myprog --repo test_")
+
+    # zsh & tcsh list the basename, bash & fish the whole path
+    nested = files("myprog create alpha subdir/nes")
+    assert len(nested) == 1 and nested[0].endswith("nested.txt")
+    nested = files(f"myprog create --exclude-from {change_dir / 'subdir' / 'nes'}")
+    assert len(nested) == 1 and nested[0].endswith("nested.txt")
 
 
-def test_fish_global_option_value(test_parser):
+@fix_shell
+def test_global_option_value(shell, change_dir, test_parser):
     """Subcommands complete after `--global-opt value` (#228)"""
-    completion = complete(test_parser, 'fish')
-    candidates = fish_candidates(completion, "myprog --repo x ")
-    assert {"create", "delete", "list"} <= set(candidates)
+    completion = complete(test_parser, shell)
+    if shell == 'tcsh':
+        pytest.xfail("tcsh completes files instead of subcommands after a global option's value")
+    assert {"create", "delete",
+            "list"} <= set(candidates(shell, completion, "myprog --repo x ", change_dir))
 
 
-def test_fish_value_equal_to_command_name(test_parser):
+@fix_shell
+def test_value_equal_to_command_name(shell, change_dir, test_parser):
     """Values matching command names must not confuse (#229)"""
-    completion = complete(test_parser, 'fish')
+    completion = complete(test_parser, shell)
+    if shell == 'tcsh':
+        pytest.xfail("tcsh offers the options of sibling subcommands")
     # `list` is the value of `delete`'s `name` positional, not the `list` subcommand
-    candidates = fish_candidates(completion, "myprog delete list --")
-    assert "--force" in candidates
-    assert "--short" not in candidates
+    found = candidates(shell, completion, "myprog delete list --", change_dir)
+    assert "--force" in found
+    assert "--exclude-from" not in found # `create`'s option
 
 
-def test_fish_positional_order(test_parser):
+@fix_shell
+def test_positional_order(shell, change_dir, test_parser):
     """Positionals are completed at the right slot (#230)"""
-    completion = complete(test_parser, 'fish')
+    completion = complete(test_parser, shell)
     # first slot offers the `name` choices
-    assert {"alpha", "beta"} <= set(fish_candidates(completion, "myprog create "))
+    assert {"alpha", "beta"} <= set(candidates(shell, completion, "myprog create ", change_dir))
+    if shell == 'zsh':
+        pytest.xfail("zsh re-offers the `name` choices at the `paths` slot")
     # later slots (the `paths` positional) must not re-offer them
-    assert "alpha" not in fish_candidates(completion, "myprog create alpha alp")
+    assert "alpha" not in candidates(shell, completion, "myprog create alpha alp", change_dir)
 
 
 @fix_shell
@@ -508,7 +572,7 @@ def test_tcsh_pattern_completion(tcsh_pattern_parser, change_dir):
 
 
 @fix_shell
-def test_subparser_custom_complete(shell):
+def test_subparser_custom_complete(shell, change_dir):
     parser = ArgumentParser(prog="test")
     subparsers = parser.add_subparsers()
     sub = subparsers.add_parser("sub", help="help message")
@@ -517,20 +581,14 @@ def test_subparser_custom_complete(shell):
             'bash': "_shtab_test_some_func() { compgen -W 'one two' -- $1 ;}",
             'fish': "function _shtab_test_some_func\n  printf '%s\\n' one two\nend"}}
     completion = complete(parser, shell)
-    if shell == 'bash':
-        shell = Bash(completion)
-        shell.compgen('-W "${_shtab_test_subparsers[*]}"', "s", "sub")
-        shell.compgen('-W "$_shtab_test_pos_0_choices"', "s", "sub")
-        shell.test('"$($_shtab_test_sub_pos_0_COMPGEN o)" = "one"')
-        shell.test('-z "${_shtab_test_COMPGEN-}"')
-    elif shell == 'fish':
-        assert fish_candidates(completion, "test sub o") == ["one"]
-    else:
-        pytest.skip("WiP")
+    assert candidates(shell, completion, "test s") == ["sub"]
+    if shell in ('zsh', 'tcsh'):
+        pytest.skip("no custom completer defined for this shell")
+    assert candidates(shell, completion, "test sub o") == ["one"]
 
 
 @fix_shell
-def test_subparser_aliases(shell):
+def test_subparser_aliases(shell, change_dir):
     parser = ArgumentParser(prog="test")
     subparsers = parser.add_subparsers()
     sub = subparsers.add_parser("sub", aliases=["xsub", "ysub"], help="help message")
@@ -538,67 +596,48 @@ def test_subparser_aliases(shell):
         'bash': "_shtab_test_some_func",
         'preamble': {'bash': "_shtab_test_some_func() { compgen -W 'one two' -- $1 ;}"}}
     completion = complete(parser, shell)
-    if shell == 'bash':
-        shell = Bash(completion)
-        shell.compgen('-W "${_shtab_test_subparsers[*]}"', "s", "sub")
-        shell.compgen('-W "${_shtab_test_pos_0_choices[*]}"', "s", "sub")
-        shell.compgen('-W "${_shtab_test_subparsers[*]}"', "x", "xsub")
-        shell.compgen('-W "${_shtab_test_pos_0_choices[*]}"', "x", "xsub")
-        shell.compgen('-W "${_shtab_test_subparsers[*]}"', "y", "ysub")
-        shell.compgen('-W "${_shtab_test_pos_0_choices[*]}"', "y", "ysub")
-        shell.test('"$($_shtab_test_sub_pos_0_COMPGEN o)" = "one"')
-        shell.test('-z "${_shtab_test_COMPGEN-}"')
-    else:
-        pytest.skip("WiP")
+    for word, alias in [("s", "sub"), ("x", "xsub"), ("y", "ysub")]:
+        assert candidates(shell, completion, f"test {word}") == [alias]
+    if shell in ('zsh', 'tcsh', 'fish'):
+        pytest.skip("no custom completer defined for this shell")
+    assert candidates(shell, completion, "test sub o") == ["one"]
 
 
 @fix_shell
-def test_subparser_colons(shell):
+def test_subparser_colons(shell, change_dir):
     parser = ArgumentParser(prog="test")
     subparsers = parser.add_subparsers()
     subparsers.add_parser("sub:cmd", help="help message")
     completion = complete(parser, shell)
-    if shell == 'bash':
-        shell = Bash(completion)
-        shell.compgen('-W "${_shtab_test_subparsers[*]}"', "s", "sub:cmd")
-        shell.compgen('-W "${_shtab_test_pos_0_choices[*]}"', "s", "sub:cmd")
-        shell.test('-z "${_shtab_test_COMPGEN-}"')
-    else:
-        pytest.skip("WiP")
+    if shell == 'zsh':
+        pytest.xfail("`_describe` reads the `:` as its name/description separator")
+    assert candidates(shell, completion, "test s") == ["sub:cmd"]
 
 
 @fix_shell
-def test_subparser_slashes(shell):
+def test_subparser_slashes(shell, change_dir):
     parser = ArgumentParser(prog="test")
     subparsers = parser.add_subparsers()
     subparsers.add_parser("sub/cmd", help="help message")
     completion = complete(parser, shell)
-    if shell == 'bash':
-        shell = Bash(completion)
-        shell.compgen('-W "${_shtab_test_subparsers[*]}"', "s", "sub/cmd")
-        shell.compgen('-W "${_shtab_test_pos_0_choices[*]}"', "s", "sub/cmd")
-        shell.test('-z "${_shtab_test_COMPGEN-}"')
-    elif shell == 'zsh':
+    if shell == 'zsh': # the function name must not contain the `/`
         assert "_shtab_test_sub/cmd" not in completion
         assert "_shtab_test_sub_cmd" in completion
-    else:
-        pytest.skip("WiP")
+    if shell == 'tcsh':
+        pytest.xfail("tcsh treats the `/` in a word list as a pathname separator")
+    assert candidates(shell, completion, "test s") == ["sub/cmd"]
 
 
 @fix_shell
-def test_add_argument_to_optional(shell):
+def test_add_argument_to_optional(shell, change_dir):
     parser = ArgumentParser(prog="test")
     shtab.add_argument_to(parser, ["-s", "--shell"])
     completion = complete(parser, shell)
-    if shell == 'bash':
-        shell = Bash(completion)
-        shell.compgen('-W "${_shtab_test_option_strings[*]}"', "--s", "--shell")
-    else:
-        pytest.skip("WiP")
+    assert candidates(shell, completion, "test --s") == expected_options(shell, "--shell")
 
 
 @fix_shell
-def test_add_argument_to_positional(shell, capsys):
+def test_add_argument_to_positional(shell, capsys, change_dir):
     parser = ArgumentParser(prog="test")
     subparsers = parser.add_subparsers()
     sub = subparsers.add_parser("completion", help="help message")
@@ -612,14 +651,9 @@ def test_add_argument_to_positional(shell, capsys):
     completion, err = capsys.readouterr()
     assert completion_manual.rstrip() == completion.rstrip()
     assert not err
-    if shell == 'bash':
-        shell = Bash(completion)
-        shell.compgen('-W "${_shtab_test_subparsers[*]}"', "c", "completion")
-        shell.compgen('-W "${_shtab_test_pos_0_choices[*]}"', "c", "completion")
-        shell.compgen('-W "${_shtab_test_completion_pos_0_choices[*]}"', "ba", "bash")
-        shell.compgen('-W "${_shtab_test_completion_pos_0_choices[*]}"', "z", "zsh")
-    else:
-        pytest.skip("WiP")
+    assert candidates(shell, completion, "test c") == ["completion"]
+    assert candidates(shell, completion, "test completion ba") == ["bash"]
+    assert candidates(shell, completion, "test completion z") == ["zsh"]
 
 
 @fix_shell
@@ -644,12 +678,11 @@ def change_dir(tmp_path):
     os.chdir(original_cwd)
 
 
-def test_path_completion_after_redirection(change_dir):
+@pytest.mark.parametrize("redirection", [">", ">>", "1>", "1>>", "2>", "2>>"])
+def test_path_completion_after_redirection(change_dir, redirection):
     parser = ArgumentParser(prog="test")
     shtab.add_argument_to(parser, ["-s", "--shell"])
     completion = complete(parser, 'bash')
     (change_dir / "test_file.txt").touch()
-    for redirection in [">", ">>", "1>", "1>>", "2>", "2>>"]:
-        shell = Bash(completion +
-                     f"\nCOMP_WORDS=(test '{redirection}' tes); COMP_CWORD=2; _shtab_test;")
-        shell.test('"${COMPREPLY[@]}" = "test_file.txt"', f"Redirection {redirection} failed")
+    assert candidates('bash', completion, f"test {redirection} tes",
+                      change_dir) == ["test_file.txt"]
