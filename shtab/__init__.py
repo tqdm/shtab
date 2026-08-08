@@ -57,19 +57,19 @@ def glob(*patterns: str) -> CompleteType:
     - any directory: `shtab.DIRECTORY` (instead of `glob("*/")`)
     """
     return {
-        "bash": f"_shtab_pattern_compgen_{sha(patterns)}",
+        "bash": f"_shtab_glob_compgen_{sha(patterns)}",
         "zsh": f"_files -g '({'|'.join(patterns)})'", "tcsh": f"f:{{{','.join(patterns)}}}",
-        "fish": f"(_shtab_pattern_compgen_{sha(patterns)})", "preamble": {
+        "fish": f"(_shtab_glob_compgen_{sha(patterns)})", "preamble": {
             "bash": f"""
 # $1=COMP_WORDS[1]
-_shtab_pattern_compgen_{sha(patterns)}() {{
+_shtab_glob_compgen_{sha(patterns)}() {{
   for ext in {join(patterns)}; do
     compgen -f -X "!$ext" -- $1
   done
   compgen -d -- $1  # recurse into subdirs
 }}
 """, "fish": f"""
-function _shtab_pattern_compgen_{sha(patterns)}
+function _shtab_glob_compgen_{sha(patterns)}
   set comp (commandline -ct)
   for pattern in {join(patterns)}
     __fish_complete_path "$comp" | string match -e -- "$pattern"
@@ -87,11 +87,11 @@ def cmd(command: str) -> CompleteType:
     Example: `cmd("git branch")`
     """
     return {
-        "bash": f"_shtab_pattern_compgen_{sha(command)}", "zsh": f"($({command}))",
+        "bash": f"_shtab_cmd_compgen_{sha(command)}", "zsh": f"($({command}))",
         "tcsh": f"`{command}`", "fish": f"({command})", "preamble": {
             "bash": f"""
 # $1=COMP_WORDS[1]
-_shtab_pattern_compgen_{sha(command)}() {{
+_shtab_cmd_compgen_{sha(command)}() {{
   compgen -W "$({command})" -- $1
 }}
 """}}
@@ -469,9 +469,13 @@ ${root_prefix}() {
   else
     # use choices & compgen
     [ -n "${current_action_compgen}" ] && {
-      # only apply filename post-processing (append `/` to dirs, escaping) here,
-      # so that e.g. subcommands matching a dir name don't gain a trailing `/` (#67)
-      compopt -o filenames 2>/dev/null || : # bash >= 4.0; no-op outside completion
+      # only apply filename post-processing (append `/` to dirs, escaping) to compgens
+      # completing paths, so that neither subcommands nor non-path candidates
+      # (e.g. from `shtab.cmd`) gain a trailing `/` when matching a dir name (#67)
+      case "${current_action_compgen}" in
+        _shtab_compgen_files|_shtab_compgen_dirs|_shtab_glob_compgen_*)
+          compopt -o filenames 2>/dev/null || : ;; # bash >= 4.0; no-op outside completion
+      esac
       while IFS= read -r line; do COMPREPLY+=("$line"); done < <(
         "${current_action_compgen}" "${completing_word}")
     }

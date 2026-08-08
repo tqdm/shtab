@@ -487,6 +487,24 @@ def test_bash_subcommand_dir_collision(change_dir, test_parser):
     assert line == "myprog create alpha subdir/"
 
 
+def test_bash_compgen_dir_collision(change_dir):
+    """Non-path compgen candidates matching a dir name must not gain a trailing slash (#67)"""
+    if subprocess.call(['bash', '-c', 'type compopt'], stdout=subprocess.DEVNULL,
+                       stderr=subprocess.DEVNULL):
+        pytest.skip("bash without compopt")
+    parser = ArgumentParser(prog="otherprog")
+    parser.add_argument("branch").complete = shtab.cmd("echo master other")
+    parser.add_argument("--config").complete = shtab.glob("*.yml")
+    (change_dir / "master").mkdir()
+    (change_dir / "subdir").mkdir()
+    completion = complete(parser, 'bash')
+    line = bash_completed_line(completion, "otherprog mas", change_dir)
+    assert line == "otherprog master ", "`shtab.cmd` candidate was completed like a directory"
+    # `shtab.glob` completes paths, so dirs must still get a trailing `/`
+    line = bash_completed_line(completion, "otherprog master --config sub", change_dir)
+    assert line == "otherprog master --config subdir/"
+
+
 def test_fish_global_option_value(test_parser):
     """Subcommands complete after `--global-opt value` (#228)"""
     completion = complete(test_parser, 'fish')
