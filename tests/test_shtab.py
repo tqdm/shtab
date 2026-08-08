@@ -653,3 +653,15 @@ def test_path_completion_after_redirection(change_dir):
         shell = Bash(completion +
                      f"\nCOMP_WORDS=(test '{redirection}' tes); COMP_CWORD=2; _shtab_test;")
         shell.test('"${COMPREPLY[@]}" = "test_file.txt"', f"Redirection {redirection} failed")
+
+
+def test_bash_path_completion_in_middle_of_command(change_dir):
+    """A path option still completes when the next option is already typed."""
+    parser = ArgumentParser(prog="test")
+    directory = parser.add_argument("-d", "--directory")
+    directory.complete = shtab.DIRECTORY
+    parser.add_argument("-w", "--wdir")
+    completion = shtab.complete(parser, shell="bash")
+    (change_dir / "folder").mkdir()
+    shell = Bash(completion + "\nCOMP_WORDS=(test -d -w); COMP_CWORD=2; _shtab_test;")
+    shell.test('"${COMPREPLY[@]}" = "folder"')
