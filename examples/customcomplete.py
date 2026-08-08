@@ -5,14 +5,16 @@
 See `pathcomplete.py` for a more basic version.
 """
 import argparse
+from textwrap import dedent
 
 import shtab  # for completion magic
 
 
 def process(args):
-    print(f"received <token>={args.token} [<suffix>={args.suffix}]"
+    print(f"received <date>={args.date} [<suffix>={args.suffix}]"
           f" --input-file={args.input_file} --output-name={args.output_name}"
-          f" --compose-file={args.compose_file} --hidden-opt={args.hidden_opt}")
+          f" --compose-file={args.compose_file} --greeting={args.greeting}"
+          f" --hidden-opt={args.hidden_opt}")
 
 
 def get_main_parser():
@@ -24,7 +26,7 @@ def get_main_parser():
     parser = subparsers.add_parser("process", help="parse files")
     # dynamic command tab completion builtin shortcut
     # WARNING: shtab.cmd is (re)run by your shell on each tab press, so could be slow
-    parser.add_argument("token").complete = shtab.cmd("head -c5 /dev/random | base32")
+    parser.add_argument("date").complete = shtab.cmd("date -I")
     # file tab completion builtin shortcut
     parser.add_argument("-i", "--input-file").complete = shtab.FILE
     # directory tab completion builtin shortcut
@@ -39,7 +41,32 @@ def get_main_parser():
                                                                 "docker-compose*.yaml")
     parser.add_argument("suffix", choices=['json', 'csv'], default='json', nargs='?',
                         help="Output format")
-    # help=None or argparse.SUPPRESS to exclude from CLI --help & completions
+    # custom tab completion function
+    parser.add_argument("--greeting").complete = {
+        'bash': "_shtab_files_or_hello",
+        # NOTE: _files -g '(*.txt)' doesn't work inside $()
+        'zsh': "($(ls -1 *.txt 2>/dev/null ; echo hello salut hola ciao))",
+        # NOTE: f:{*.txt} doesn't work alongside ()
+        'tcsh': "(hello salut hola ciao)",
+        'fish': "(_shtab_files_or_hello)",
+        'preamble': {
+            'bash': dedent("""
+                _shtab_files_or_hello(){
+                  # NOTE: function name `*_file*` implies `compopt -o filenames`
+                  compgen -f -X '!*.txt' -- $1
+                  compgen -d -- $1  # recurse into subdirs
+                  compgen -W 'hello salut hola ciao' -- $1
+                }"""),
+            'fish': dedent("""
+                function _shtab_files_or_hello
+                  set comp (commandline -ct)
+                  __fish_complete_path "$comp" | string match -e '*.txt'
+                  __fish_complete_path "$comp" | string match -e '*/' # recurse into subdirs
+                  string match -e -- "$comp" hello salut hola ciao
+                end
+                """)}} # yapf: disable
+
+    # SUPPRESS help to exclude from CLI --help & completions
     parser.add_argument("--hidden-opt", action='store_true', help=argparse.SUPPRESS)
     parser.set_defaults(func=process)
     return main_parser
