@@ -464,18 +464,13 @@ ${root_prefix}() {
       compgen -W "${current_option_strings[*]}" -- "${completing_word}")
   elif [[ "${previous_word}" =~ ^[0-9\\&]*[\\<\\>]\\>?$ ]]; then
     # handle redirection operators
-    compopt -o filenames 2>/dev/null || : # bash >= 4.0; no-op outside completion
+    compopt -o filenames 2>/dev/null || : # bash>=4
     while IFS= read -r line; do COMPREPLY+=("$line"); done < <(compgen -f -- "${completing_word}")
   else
     # use choices & compgen
     [ -n "${current_action_compgen}" ] && {
-      # only apply filename post-processing (append `/` to dirs, escaping) to compgens
-      # completing paths, so that neither subcommands nor non-path candidates
-      # (e.g. from `shtab.cmd`) gain a trailing `/` when matching a dir name (#67)
-      case "${current_action_compgen}" in
-        _shtab_compgen_files|_shtab_compgen_dirs|_shtab_glob_compgen_*)
-          compopt -o filenames 2>/dev/null || : ;; # bash >= 4.0; no-op outside completion
-      esac
+      [[ "${current_action_compgen}" =~ _(file|dir|glob|FILE|DIR|GLOB)|File|Dir|Glob ]] &&
+        compopt -o filenames 2>/dev/null || : # bash>=4
       while IFS= read -r line; do COMPREPLY+=("$line"); done < <(
         "${current_action_compgen}" "${completing_word}")
     }
