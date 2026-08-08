@@ -57,19 +57,19 @@ def glob(*patterns: str) -> CompleteType:
     - any directory: `shtab.DIRECTORY` (instead of `glob("*/")`)
     """
     return {
-        "bash": f"_shtab_pattern_compgen_{sha(patterns)}",
+        "bash": f"_shtab_glob_compgen_{sha(patterns)}",
         "zsh": f"_files -g '({'|'.join(patterns)})'", "tcsh": f"f:{{{','.join(patterns)}}}",
-        "fish": f"(_shtab_pattern_compgen_{sha(patterns)})", "preamble": {
+        "fish": f"(_shtab_glob_compgen_{sha(patterns)})", "preamble": {
             "bash": f"""
 # $1=COMP_WORDS[1]
-_shtab_pattern_compgen_{sha(patterns)}() {{
+_shtab_glob_compgen_{sha(patterns)}() {{
   for ext in {join(patterns)}; do
     compgen -f -X "!$ext" -- $1
   done
   compgen -d -- $1  # recurse into subdirs
 }}
 """, "fish": f"""
-function _shtab_pattern_compgen_{sha(patterns)}
+function _shtab_glob_compgen_{sha(patterns)}
   set comp (commandline -ct)
   for pattern in {join(patterns)}
     __fish_complete_path "$comp" | string match -e -- "$pattern"
@@ -87,11 +87,11 @@ def cmd(command: str) -> CompleteType:
     Example: `cmd("git branch")`
     """
     return {
-        "bash": f"_shtab_pattern_compgen_{sha(command)}", "zsh": f"($({command}))",
+        "bash": f"_shtab_cmd_compgen_{sha(command)}", "zsh": f"($({command}))",
         "tcsh": f"`{command}`", "fish": f"({command})", "preamble": {
             "bash": f"""
 # $1=COMP_WORDS[1]
-_shtab_pattern_compgen_{sha(command)}() {{
+_shtab_cmd_compgen_{sha(command)}() {{
   compgen -W "$({command})" -- $1
 }}
 """}}
@@ -464,12 +464,16 @@ ${root_prefix}() {
       compgen -W "${current_option_strings[*]}" -- "${completing_word}")
   elif [[ "${previous_word}" =~ ^[0-9\\&]*[\\<\\>]\\>?$ ]]; then
     # handle redirection operators
+    compopt -o filenames 2>/dev/null || : # bash>=4
     while IFS= read -r line; do COMPREPLY+=("$line"); done < <(compgen -f -- "${completing_word}")
   else
     # use choices & compgen
-    [ -n "${current_action_compgen}" ] &&
+    [ -n "${current_action_compgen}" ] && {
+      [[ "${current_action_compgen}" =~ _(file|dir|glob|FILE|DIR|GLOB)|File|Dir|Glob ]] &&
+        compopt -o filenames 2>/dev/null || : # bash>=4
       while IFS= read -r line; do COMPREPLY+=("$line"); done < <(
         "${current_action_compgen}" "${completing_word}")
+    }
     while IFS= read -r line; do COMPREPLY+=("$line"); done < <(
       compgen -W "${current_action_choices[*]}" -- "${completing_word}")
   fi
@@ -477,7 +481,7 @@ ${root_prefix}() {
   return 0
 }
 
-complete -o filenames -F ${root_prefix} ${prog}""").safe_substitute(
+complete -F ${root_prefix} ${prog}""").safe_substitute(
         subparsers="\n".join(subparsers),
         option_strings="\n".join(option_strings),
         compgens="\n".join(compgens),
