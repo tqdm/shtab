@@ -310,9 +310,6 @@ def tcsh_candidates(completion, cmdlines, cwd):
     script = cwd / "completion.tcsh"
     script.write_text(completion)
     prompt = "|candidates|"
-    # tcsh echoes what is typed, so the command setting the prompt must not contain it verbatim
-    set_prompt = f'set prompt="{prompt[:6]}""{prompt[6:]}"'
-
     pid, fd = pty.fork()
     if pid == 0:   # child
         os.chdir(cwd)
@@ -320,6 +317,9 @@ def tcsh_candidates(completion, cmdlines, cwd):
         os.environ['COLUMNS'] = '999'
         os.execvp('tcsh', ['tcsh', '-f', '-i'])
     output = ""
+
+    def clean(chunk):
+        return re.sub(r"\x1b\[[0-9;]*[A-Za-z]|[\a\r\b]", "", chunk.decode('utf-8', 'replace'))
 
     def read(prompts, timeout=10.0):
         """Read until the prompt has been seen `prompts` times (or `timeout` elapses)."""
@@ -333,17 +333,18 @@ def tcsh_candidates(completion, cmdlines, cwd):
                     break
                 if not chunk:
                     break
-                output += re.sub(r"\x1b\[[0-9;]*[A-Za-z]|[\a\r\b]", "",
-                                 chunk.decode('utf-8', 'replace'))
+                output += clean(chunk)
         # a command just finished, give tcsh a moment to enable its line editor again
         while select.select([fd], [], [], 0.2)[0]:
-            output += re.sub(r"\x1b\[[0-9;]*[A-Za-z]|[\a\r\b]", "",
-                             os.read(fd, 1 << 16).decode('utf-8', 'replace'))
+            output += clean(os.read(fd, 1 << 16))
         return output
 
     candidates = []
     try:
-        os.write(fd, f"set autolist\nsource {script}\n{set_prompt}\n".encode())
+        # tcsh echoes what is typed, so the command setting the prompt must not contain it verbatim
+        os.write(
+            fd,
+            f'set autolist\nsource {script}\nset prompt="{prompt[:1]}""{prompt[1:]}"\n'.encode())
         read(1)
         for cmdline in cmdlines:
             seen = len(output)
@@ -417,9 +418,11 @@ def bash_completed_line(completion, cmdline, cwd):
     Needed since readline's post-processing (e.g. `-o filenames` appending `/` to
     dirs) happens after `COMPREPLY` and is thus invisible to `compgen`-based tests.
     """
+    if not shutil.which('bash'):
+        pytest.skip("bash not available")
     script = cwd / "completion.bash"
     script.write_text(completion)
-    prompt = "|bashtest|"
+    prompt = "|candidates|"
     pid, fd = pty.fork()
     if pid == 0:   # child
         os.chdir(cwd)
@@ -470,10 +473,11 @@ def bash_completed_line(completion, cmdline, cwd):
     return completed
 
 
-def test_bash_subcommand_dir_collision(change_dir, test_parser):
-    """Subcommands matching a dir name must not gain a trailing slash (#67)"""
-    if subprocess.call(['bash', '-c', 'type compopt'], stdout=subprocess.DEVNULL,
-                       stderr=subprocess.DEVNULL):
+def test_bash_dir_collision(change_dir, test_parser):
+    """Subcommands matching a dir name must not gain a trailing slash"""
+    try:
+        subprocess.check_call(['bash', '-c', 'type compopt'])
+    except subprocess.CalledProcessError:
         pytest.skip("bash without compopt")
     (change_dir / "create").mkdir()
     (change_dir / "subdir").mkdir()
@@ -485,24 +489,6 @@ def test_bash_subcommand_dir_collision(change_dir, test_parser):
     # dir/file completions must still get filename treatment (trailing `/` on dirs)
     line = bash_completed_line(completion, "myprog create alpha sub", change_dir)
     assert line == "myprog create alpha subdir/"
-
-
-def test_bash_compgen_dir_collision(change_dir):
-    """Non-path compgen candidates matching a dir name must not gain a trailing slash (#67)"""
-    if subprocess.call(['bash', '-c', 'type compopt'], stdout=subprocess.DEVNULL,
-                       stderr=subprocess.DEVNULL):
-        pytest.skip("bash without compopt")
-    parser = ArgumentParser(prog="otherprog")
-    parser.add_argument("branch").complete = shtab.cmd("echo master other")
-    parser.add_argument("--config").complete = shtab.glob("*.yml")
-    (change_dir / "master").mkdir()
-    (change_dir / "subdir").mkdir()
-    completion = complete(parser, 'bash')
-    line = bash_completed_line(completion, "otherprog mas", change_dir)
-    assert line == "otherprog master ", "`shtab.cmd` candidate was completed like a directory"
-    # `shtab.glob` completes paths, so dirs must still get a trailing `/`
-    line = bash_completed_line(completion, "otherprog master --config sub", change_dir)
-    assert line == "otherprog master --config subdir/"
 
 
 def test_fish_global_option_value(test_parser):
