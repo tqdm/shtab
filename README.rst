@@ -20,7 +20,7 @@ Features
 
 - Outputs tab completion scripts for multiple shells
 
-  - ``bash``, ``zsh``, ``fish``, ``tcsh``
+  - ``bash``, ``zsh``, ``fish``, ``tcsh``, ``powershell``
 
 - Supports
 
@@ -60,8 +60,8 @@ There are two ways of using ``shtab``:
 - `Library Usage <https://tqdm.github.io/shtab/use/#library-usage>`_: as a library integrated into your CLI application
 
   - adds a couple of lines to your application
-  - argument mode: end-users execute ``your_cli_app --print-completion {bash,zsh,tcsh,fish}``
-  - subparser mode: end-users execute ``your_cli_app completion {bash,zsh,tcsh,fish}``
+  - argument mode: end-users execute ``your_cli_app --print-completion {bash,zsh,tcsh,fish,powershell}``
+  - subparser mode: end-users execute ``your_cli_app completion {bash,zsh,tcsh,fish,powershell}``
 
 Examples
 --------
@@ -97,8 +97,7 @@ Contributions
 
 Please do open `issues <https://github.com/tqdm/shtab/issues>`_ & `pull requests <https://github.com/tqdm/shtab/pulls>`_! Some ideas:
 
-- support ``powershell`` (#212)
-- support ``python -m`` prefix (#55)
+- support ``python -m`` prefix (`#55 <https://github.com/iterative/shtab/pull/55>`_)
 
 See
 `CONTRIBUTING.md <https://github.com/tqdm/shtab/tree/main/CONTRIBUTING.md>`_

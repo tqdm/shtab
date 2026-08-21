@@ -17,7 +17,7 @@
 ## Features
 
 - Outputs tab completion scripts for multiple shells
-    - `bash`, `zsh`, `fish`, `tcsh`
+    - `bash`, `zsh`, `fish`, `tcsh`, `powershell`
 - Supports
     - [`argparse`](https://docs.python.org/library/argparse)
     - [`docopt`](https://pypi.org/project/docopt) (via [`argopt`](https://pypi.org/project/argopt))
@@ -41,6 +41,7 @@ shell | location
 [`zsh`](https://github.com/zsh-users/zsh-completions/blob/master/zsh-completions-howto.org) | `/usr/local/share/zsh/site-functions/_NAME`
 [`tcsh`](https://github.com/tcsh-org/tcsh/blob/master/complete.tcsh) | `/etc/profile.d/completion_NAME.csh`, source in `~/.cshrc` or `~/.tcshrc`
 [`fish`](https://fishshell.com/docs/current/completions.html#where-to-put-completions) | `~/.config/fish/completions/NAME.fish`
+[`powershell`](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/register-argumentcompleter) | `~\.config\powershell\completions\NAME.ps1`, source in `$PROFILE`
 
 For more information, click on the shells above, and/or see [CLI Usage](use.md#cli-usage).
 
