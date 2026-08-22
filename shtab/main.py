@@ -13,7 +13,8 @@ log = logging.getLogger(__name__)
 
 def get_main_parser():
     parser = argparse.ArgumentParser(prog="shtab")
-    parser.add_argument("parser", help="importable parser (or function returning parser)")
+    parser.add_argument("parser",
+                        help="importable parser (or function returning parser) or click command")
     parser.add_argument("--version", action="version", version="%(prog)s " + __version__)
     parser.add_argument("-s", "--shell", default=SUPPORTED_SHELLS[0], choices=SUPPORTED_SHELLS)
     parser.add_argument("-o", "--output", default='-', help="output file (- for stdout)",
@@ -53,7 +54,15 @@ def main(argv=None):
         return
     other_parser = getattr(module, other_parser)
     if callable(other_parser):
-        other_parser = other_parser()
+        try:
+            from .click import click, click2argparse
+        except ImportError:
+            other_parser = other_parser()
+        else:
+            if isinstance(other_parser, click.Command):
+                other_parser = click2argparse(other_parser)
+            else:
+                other_parser = other_parser()
     if args.prog:
         other_parser.prog = args.prog
 

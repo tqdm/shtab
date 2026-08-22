@@ -76,7 +76,7 @@ def no_log_info(caplog):
 
 @fix_shell
 def test_main(shell):
-    main(["-s", shell, "shtab.main.get_main_parser"])
+    main(['-us', shell, 'shtab.main.get_main_parser'])
 
 
 @fix_shell
