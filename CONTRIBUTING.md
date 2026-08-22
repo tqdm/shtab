@@ -10,6 +10,26 @@ shtab (main)$ pre-commit install  # install pre-commit hooks into git workspace
 shtab (main)$ pre-commit run -a   # run hooks on all files
 ```
 
+Example scripts may also be installed via `pip install -e .` after modifying `pyproject.toml`:
+
+```diff
+diff --git a/pyproject.toml b/pyproject.toml
+index edfd3b2..44c3748 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -7,3 +7,3 @@ build-backend = "setuptools.build_meta"
+ [tool.setuptools.packages.find]
+-include = ["shtab", "shtab.*"]
++include = ["shtab", "shtab.*", "examples"]
+
+@@ -77,2 +77,6 @@ dev = ["pytest>=6", "pytest-cov", "click"]
+ shtab = "shtab.main:main"
++pathcomplete = "examples.pathcomplete:main"
++customcomplete = "examples.customcomplete:main"
++greeter = "examples.click_greeter:greeter"
++main = "examples.click_subcommand:main"
+```
+
 ## Layout
 
 Most of the magic lives in [`shtab/__init__.py`](./shtab/__init__.py).

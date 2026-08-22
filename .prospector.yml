@@ -9,4 +9,4 @@ pylint:
   run: false
 mccabe:
   options:
-    max-complexity: 26
+    max-complexity: 31

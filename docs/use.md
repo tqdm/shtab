@@ -117,7 +117,7 @@ def get_main_parser():
     ...
     return parser
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     parser = get_main_parser()
     args = parser.parse_args()
     ...
@@ -163,7 +163,7 @@ Assuming this code example is installed in `MY_PROG.command.main`, simply run:
 
 Complex projects with subparsers and custom completions for paths matching
 certain patterns (e.g. `--file=*.txt` or `--branch=$(git branch)`) are fully supported (see
-[examples/customcomplete.py](https://github.com/tqdm/shtab/tree/main/examples/customcomplete.py)
+[examples/customcomplete.py](https://github.com/tqdm/shtab/blob/main/examples/customcomplete.py)
 or even
 [treeverse/dvc:commands/completion.py](https://github.com/treeverse/dvc/blob/main/dvc/commands/completion.py)
 for example).
@@ -172,28 +172,27 @@ Add direct support to scripts for a little more configurability:
 
 === "argparse"
 
-    ```{.py title="pathcomplete.py" linenums="1" hl_lines="7 9-11 14"}
+    ```{.py title="pathcomplete.py" linenums="1" hl_lines="5 7 8 10 13"}
     #!/usr/bin/env python
-    import argparse
-    import shtab  # for completion magic
+    import argparse, shtab
 
-    def get_main_parser():
-        parser = argparse.ArgumentParser(prog="pathcomplete")
-        shtab.add_argument_to(parser, ["-s", "--print-completion"])  # magic!
-        # file & directory tab complete
-        parser.add_argument("file", nargs="?").complete = shtab.FILE
-        parser.add_argument("--dir", default=".").complete = shtab.DIRECTORY
-        parser.add_argument("--config").complete = shtab.glob('*.toml', '*.yml', '*.yaml', '*.json')
-        # WARNING: shtab.cmd is (re)run by your shell on each tab press, so could be slow
-        parser.add_argument("--branch",
-                            help="git branch from current workdir").complete = shtab.cmd("git branch")
-        return parser
+    parser = argparse.ArgumentParser(prog="pathcomplete")
+    shtab.add_argument_to(parser, ["-s", "--print-completion"])  # magic!
+    # file & directory tab complete
+    parser.add_argument("file", nargs="?").complete = shtab.FILE
+    parser.add_argument("--dir", default=".").complete = shtab.DIRECTORY
+    parser.add_argument("--config")\
+      .complete = shtab.glob('*.toml', '*.yml', '*.yaml', '*.json')
+    # WARNING: shtab.cmd is (re)run by your shell on each tab press, so could be slow
+    parser.add_argument("--branch", help="git branch from current workdir")\
+      .complete = shtab.cmd("git branch")
 
-    if __name__ == "__main__":
-        parser = get_main_parser()
-        args = parser.parse_args()
+    def main(args=None):
+        args = parser.parse_args(args=args)
         print(f"received <file>={args.file} --dir={args.dir}"
               f" --config={args.config} --branch={args.branch}")
+    if __name__ == '__main__':
+        main()
     ```
 
 === "docopt"
@@ -201,7 +200,7 @@ Add direct support to scripts for a little more configurability:
     Simply use [argopt](https://pypi.org/project/argopt) to create a parser
     object from [docopt](https://pypi.org/project/docopt) syntax:
 
-    ```{.py title="docopt-greeter.py" linenums="1" hl_lines="17"}
+    ```{.py title="docopt_greeter.py" linenums="1" hl_lines="16"}
     #!/usr/bin/env python
     """Greetings and partings.
 
@@ -216,11 +215,42 @@ Add direct support to scripts for a little more configurability:
       <me>  : My name [default: Casper]
     """
     import argopt, shtab
-
     parser = argopt.argopt(__doc__)
     shtab.add_argument_to(parser, ["-s", "--print-completion"])  # magic!
-    if __name__ == "__main__":
-        args = parser.parse_args()
+    def main(args=None):
+        args = parser.parse_args(args=args)
         msg = "k thx bai!" if args.goodbye else "hai!"
-        print("{} says '{}' to {}".format(args.me, msg, args.you))
+        print(f"{args.me} says '{msg}' to {args.you}")
+    if __name__ == '__main__':
+        main()
+    ```
+
+=== "click"
+
+    See [examples/click_greeter.py](https://github.com/tqdm/shtab/blob/main/examples/click_greeter.py) for an alternative without subcommands.
+
+    ```{.py title="click_subcommand.py" linenums="1" hl_lines="20"}
+    #!/usr/bin/env python
+    import click, shtab.click
+
+    @click.group()
+    def main():
+        """Main (root) CLI group command."""
+
+    @main.command()
+    @click.argument('you', default="Anon")
+    @click.argument('me', default="Casper")
+    @click.option('-g', '--goodbye', is_flag=True, help='Say "goodbye" (instead of "hello").')
+    @click.option('--file', type=click.File(), help="Input file to read from.")
+    @click.option('--path', type=click.Path(exists=True, file_okay=False),
+                  help="Input directory to read from.")
+    def greeter(you, me, goodbye, file, path):
+        """Greetings and partings."""
+        msg = "k thx bai!" if goodbye else "hai!"
+        print(f"{me} says '{msg}' to {you} after reading from {file} and {path}")
+
+    main.command()(shtab.click.completion)  # magic!
+
+    if __name__ == '__main__':
+        main()
     ```

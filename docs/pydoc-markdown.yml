@@ -25,7 +25,7 @@ renderer:
   - title: Usage
     name: use
     source: use.md
-  - title: Reference
+  - title: 'Ref: shtab'
     name: ref
     contents:
     - shtab.FILE
@@ -34,6 +34,9 @@ renderer:
     - shtab.cmd
     - shtab.complete
     - shtab.add_argument_to
+  - title: 'Ref: shtab.click'
+    name: ref-click
+    contents: [shtab.click.completion, shtab.click.complete]
   # external links
   - title: ↗ Source Code
     href: https://github.com/tqdm/shtab
@@ -42,9 +45,9 @@ renderer:
   - title: ↗ Issues
     href: https://github.com/tqdm/shtab/issues
   - title: ↗ Contributing
-    href: https://github.com/tqdm/shtab/tree/main/CONTRIBUTING.md
+    href: https://github.com/tqdm/shtab/blob/main/CONTRIBUTING.md
   - title: ↗ Licence
-    href: https://github.com/tqdm/shtab/tree/main/LICENCE
+    href: https://github.com/tqdm/shtab/blob/main/LICENCE
   mkdocs_config:
     site_name: shtab documentation
     site_description: Automagic shell tab completion for Python CLI applications

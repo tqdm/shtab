@@ -71,7 +71,7 @@ classifiers = [
     "Topic :: Utilities"]
 
 [project.optional-dependencies]
-dev = ["pytest>=6", "pytest-cov"]
+dev = ["pytest>=6", "pytest-cov", "click"]
 
 [project.scripts]
 shtab = "shtab.main:main"
@@ -99,12 +99,13 @@ blank_line_before_nested_class_or_def = false
 
 [tool.isort]
 line_length = 99
-known_first_party = ["shtab", "tests"]
+known_first_party = ["shtab", "tests", "examples"]
 
 [tool.mypy]
 warn_unused_configs = true
 warn_unused_ignores = true
 show_error_codes = true
+no_namespace_packages = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

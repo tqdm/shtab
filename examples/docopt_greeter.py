@@ -18,8 +18,13 @@ import shtab
 
 parser = argopt.argopt(__doc__)
 shtab.add_argument_to(parser, ["-s", "--print-completion"]) # magic!
-if __name__ == "__main__":
-    args = parser.parse_args()
 
+
+def main(args=None):
+    args = parser.parse_args(args=args)
     msg = "k thx bai!" if args.goodbye else "hai!"
     print(f"{args.me} says '{msg}' to {args.you}")
+
+
+if __name__ == '__main__':
+    main()
