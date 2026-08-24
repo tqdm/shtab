@@ -9,21 +9,24 @@ jobs:
     if: github.event_name != 'pull_request' || !contains('OWNER,MEMBER,COLLABORATOR', github.event.pull_request.author_association)
     strategy:
       matrix:
-        python: [3.9, 3.14]
-    runs-on: ubuntu-latest
+        python: ['3.x']
+        os: [ubuntu, macos, windows]
+        include: [{python: 3.9, os: ubuntu}] # min supported (see pyproject.toml)
+    runs-on: ${{ matrix.os }}-latest
     steps:
     - uses: actions/checkout@v7
       with: {fetch-depth: 0}
     - uses: actions/setup-python@v7
       with:
         python-version: ${{ matrix.python }}
-    - run: sudo apt-get update && sudo apt-get install -y zsh fish tcsh # generated-script tests
+    - if: matrix.os == 'ubuntu'
+      run: sudo apt-get update && sudo apt-get install -y zsh fish tcsh # generated-script tests
     - run: pip install -e .[dev]
-    - run: env PYTHONPATH=. pytest --cov-report=xml --cov-report=term
+    - run: env PYTHONPATH=. pytest --cov-report=xml --cov-report=term ${{ matrix.os == 'windows' && '-k "not bash" --cov-fail-under=75' || '' }}
     - uses: codecov/codecov-action@v7
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
-        flags: ${{ matrix.python }}
+        flags: ${{ matrix.python }}-${{ matrix.os }}
   diff:
     if: (github.event_name != 'pull_request' || !contains('OWNER,MEMBER,COLLABORATOR', github.event.pull_request.author_association)) && github.ref != 'refs/heads/main'
     runs-on: ubuntu-latest

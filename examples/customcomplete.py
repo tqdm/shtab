@@ -9,6 +9,13 @@ from textwrap import dedent
 
 import shtab  # for completion magic
 
+# WARNING: shtab.cmd is (re)run by your shell on each tab press, so could be slow
+COMPLETE_TOKEN = shtab.cmd("head -c5 /dev/random | base32")
+# override powershell function to a Windows-compatible approximate equivalent
+COMPLETE_TOKEN['preamble']['powershell'] = (   # type: ignore[index]
+    f"function {COMPLETE_TOKEN['powershell']}"
+    " { Get-Random -Count 1 -InputObject (10000..99999) }")
+
 
 def process(args):
     print(f"received <token>={args.token} [<suffix>={args.suffix}]"
@@ -25,8 +32,7 @@ shtab.add_argument_to(parser, "shell", parent=main_parser) # magic!
 # mypy: disable-error-code="attr-defined"
 parser = subparsers.add_parser("process", help="parse files")
 # dynamic command tab completion builtin shortcut
-# WARNING: shtab.cmd is (re)run by your shell on each tab press, so could be slow
-parser.add_argument("token").complete = shtab.cmd("head -c5 /dev/random | base32")
+parser.add_argument("token").complete = COMPLETE_TOKEN
 # file tab completion builtin shortcut
 parser.add_argument("-i", "--input-file", dest="input_name").complete = shtab.FILE
 # directory tab completion builtin shortcut

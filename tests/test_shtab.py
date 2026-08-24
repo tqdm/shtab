@@ -1,7 +1,6 @@
 """Tests for `shtab`."""
 import logging
 import os
-import pty
 import re
 import select
 import shutil
@@ -88,7 +87,8 @@ def test_main_self_completion(shell, capsys):
     assert not captured.err
     expected = {
         'bash': "complete -F _shtab_shtab shtab", 'zsh': "_shtab_shtab_commands()",
-        'tcsh': "complete shtab", 'fish': "complete -c shtab"}
+        'tcsh': "complete shtab", 'fish': "complete -c shtab",
+        'powershell': "Register-ArgumentCompleter -Native -CommandName shtab"}
     assert expected[shell] in captured.out
 
 
@@ -101,7 +101,8 @@ def test_main_output_path(shell, capsys, change_dir, output):
     assert not captured.err
     expected = {
         'bash': "complete -F _shtab_shtab shtab", 'zsh': "_shtab_shtab_commands()",
-        'tcsh': "complete shtab", 'fish': "complete -c shtab"}
+        'tcsh': "complete shtab", 'fish': "complete -c shtab",
+        'powershell': "Register-ArgumentCompleter -Native -CommandName shtab"}
     if output in ("-", "stdout"):
         assert expected[shell] in captured.out
     else:
@@ -145,7 +146,7 @@ def test_prog_scripts(shell, capsys):
             'complete -c script.py -e', 'complete -c script.py -f',
             f"{start} -s h -l help -d 'show this help message and exit'",
             f"{start} -l version -d 'show program'\"'\"'s version number and exit'",
-            f'{start} -s s -l shell -xka "bash zsh tcsh fish" -d shell',
+            f'{start} -s s -l shell -xka "bash zsh tcsh fish powershell" -d shell',
             f"{start} -s o -l output -x -d 'output file (- for stdout)'",
             f"{start} -l prefix -x -d 'prepended to generated functions to avoid clashes'",
             f"{start} -l preamble -x -d 'prepended to generated script'",
@@ -153,8 +154,11 @@ def test_prog_scripts(shell, capsys):
             f"{start} -s u -l error-unimportable -d"
             " 'raise errors if `parser` is not found in $PYTHONPATH'",
             f"{start} -l verbose -d 'Log debug information'",
-            f'{start} -l print-own-completion -xka "bash zsh tcsh fish" -d'
+            f'{start} -l print-own-completion -xka "bash zsh tcsh fish powershell" -d'
             " 'print shtab'\"'\"'s own completion'"]
+    elif shell == 'powershell':
+        assert script_py == [
+            "Register-ArgumentCompleter -Native -CommandName script.py -ScriptBlock {"]
     else:
         raise NotImplementedError(shell)
 
@@ -330,12 +334,29 @@ def fish_candidates(completion, cmdline):
     return [line.split("\t")[0] for line in proc.splitlines() if line.strip()]
 
 
+def powershell_candidates(completion, cmdline):
+    """Source `completion` in PowerShell, then return the completion candidates for `cmdline`."""
+    if not shutil.which('pwsh'):
+        pytest.skip("pwsh not available")
+    proc = subprocess.check_output([
+        'pwsh', '-NoProfile', '-NonInteractive', '-Command', f"""
+{completion}
+$line = '{cmdline}'
+$results = TabExpansion2 -inputScript $line -cursorColumn $line.Length
+$results.CompletionMatches |
+  Where-Object {{ $_.ResultType -eq 'ParameterValue' }} |
+  ForEach-Object {{ $_.CompletionText }}
+"""], text=True)
+    return [line for line in proc.splitlines() if line.strip()]
+
+
 def tcsh_candidates(completion, cmdlines, cwd):
     """
     Return pty-driven completion candidates for each of `cmdlines`.
 
     Reason: tcsh has no `complete -C` equivalent.
     """
+    pty = pytest.importorskip('pty')
     if not shutil.which('tcsh'):
         pytest.skip("tcsh not available")
     script = cwd / "completion.tcsh"
@@ -442,6 +463,22 @@ def test_file_completion(shell, change_dir, test_parser):
         candidates = fish_candidates(completion, f"myprog create --exclude-from {absolute}")
         assert candidates[0].endswith("subdir/nested.txt")
         assert len(candidates) == 1
+    elif shell == 'powershell':
+        assert powershell_candidates(completion, "myprog create alpha test_") == ["test_file.txt"]
+        assert powershell_candidates(completion,
+                                     "myprog create --exclude-from ") == ["test_file.txt"]
+        assert not powershell_candidates(completion, "myprog delete test_")
+        assert not powershell_candidates(completion, "myprog --repo test_")
+        (change_dir / "subdir").mkdir()
+        (change_dir / "subdir" / "nested.txt").touch()
+        assert powershell_candidates(completion,
+                                     "myprog create alpha subdir/nes") == ["subdir/nested.txt"]
+        assert powershell_candidates(completion,
+                                     "myprog create alpha subdir/") == ["subdir/nested.txt"]
+        absolute = change_dir / "subdir" / "nes"
+        candidates = powershell_candidates(completion, f"myprog create --exclude-from {absolute}")
+        assert candidates[0].endswith(f"subdir{os.sep}nested.txt")
+        assert len(candidates) == 1
     else:
         raise NotImplementedError(completion)
 
@@ -453,6 +490,7 @@ def bash_candidates(completion, cmdlines, cwd):
     Reason: readline's post-processing (e.g. `-o filenames` appending `/` to dirs)
     happens after `COMPREPLY` and is thus invisible to `compgen`-based tests.
     """
+    pty = pytest.importorskip('pty')
     if not shutil.which('bash'):
         pytest.skip("bash not available")
     script = cwd / "completion.bash"
@@ -526,6 +564,12 @@ def test_bash_dir_collision(change_dir, test_parser):
         "myprog create ",              # choices should take priority over dirs
         "myprog create alpha subdir/", # dirs should still have trailing `/`
     ]
+
+
+def test_powershell_single_token(test_parser, change_dir):
+    completion = complete(test_parser, 'powershell')
+    assert powershell_candidates(completion, "myprog --") == ["--help", "--repo"]
+    assert powershell_candidates(completion, "myprog c") == ["create"]
 
 
 def test_fish_global_option_value(test_parser):
@@ -763,7 +807,10 @@ def change_dir(tmp_path):
     os.chdir(original_cwd)
 
 
-def test_path_completion_after_redirection(change_dir):
+@fix_shell
+def test_path_completion_after_redirection(change_dir, shell):
+    if shell != 'bash':
+        pytest.skip("WiP")
     parser = ArgumentParser(prog="test")
     shtab.add_argument_to(parser, ["-s", "--shell"])
     completion = complete(parser, 'bash')
