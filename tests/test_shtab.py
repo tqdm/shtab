@@ -760,6 +760,13 @@ def test_add_argument_to_optional(shell):
         pytest.skip("WiP")
 
 
+def test_add_argument_to_group_typing() -> None:
+    """Ensure mypy accepts argument groups and the function preserves identity."""
+    parser = ArgumentParser(prog="test")
+    group = parser.add_argument_group("completion")
+    assert shtab.add_argument_to(group) is group
+
+
 @fix_shell
 def test_add_argument_to_positional(shell, capsys):
     parser = ArgumentParser(prog="test")
