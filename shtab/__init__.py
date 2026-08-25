@@ -2,8 +2,8 @@ import hashlib
 import logging
 import re
 from argparse import (ONE_OR_MORE, REMAINDER, SUPPRESS, ZERO_OR_MORE, Action, ArgumentParser,
-                      _AppendAction, _AppendConstAction, _CountAction, _HelpAction,
-                      _StoreConstAction, _VersionAction)
+                      _ActionsContainer, _AppendAction, _AppendConstAction, _CountAction,
+                      _HelpAction, _StoreConstAction, _VersionAction)
 from collections import defaultdict
 from contextlib import contextmanager
 from functools import total_ordering
@@ -14,7 +14,7 @@ from string import Template
 from textwrap import dedent
 from typing import Any, Callable
 from typing import Optional as Opt
-from typing import Union
+from typing import TypeVar, Union
 
 try:
     __version__ = version('shtab')
@@ -26,6 +26,7 @@ log = logging.getLogger(__name__)
 
 ShellType = str
 CompleteType = dict[ShellType, Union[str, dict[ShellType, str]]]
+_ActionsContainerT = TypeVar('_ActionsContainerT', bound=_ActionsContainer)
 SUPPORTED_SHELLS: list[ShellType] = []
 _SUPPORTED_COMPLETERS: dict[ShellType, Callable] = {}
 CHOICE_FUNCTIONS: dict[str, CompleteType] = {
@@ -1508,12 +1509,12 @@ def completion_action(parent: Opt[ArgumentParser] = None, preamble: Union[str, d
 
 
 def add_argument_to(
-    parser: ArgumentParser,
+    parser: _ActionsContainerT,
     option_string: Union[str, list[str]] = "--print-completion",
     help: str = "print shell completion script",                    # pylint: disable=W0622
     parent: Opt[ArgumentParser] = None,
     preamble: Union[str, dict[str, str]] = "",
-):
+) -> _ActionsContainerT:
     """
     option_string:
       iff positional (no `-` prefix) then `parser` is assumed to actually be
