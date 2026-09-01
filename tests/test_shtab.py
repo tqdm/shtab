@@ -796,6 +796,11 @@ def test_get_completer(shell):
     shtab.get_completer(shell)
 
 
+@pytest.mark.parametrize("quote", ["'"] + list(map(chr, range(0x2018, 0x201c))))
+def test_powershell_escape_quotes(quote):
+    assert shtab._powershell_escape(f"a{quote}b") == f"'a{quote}{quote}b'"
+
+
 def test_get_completer_invalid():
     try:
         shtab.get_completer("invalid")

@@ -1115,11 +1115,13 @@ ${completions}
 def _powershell_escape(string: str) -> str:
     """
     Similar to `shlex.quote`, see:
-    https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/
+    - https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/
     about/about_quoting_rules
+    - https://learn.microsoft.com/en-us/powershell/scripting/lang-spec/
+    chapter-02#2352-string-literals
     """
     s = str(string)
-    for ch in "'\u2018\u2019":
+    for ch in "'\u2018\u2019\u201a\u201b":
         s = s.replace(ch, ch * 2)
     return f"'{s}'"
 
