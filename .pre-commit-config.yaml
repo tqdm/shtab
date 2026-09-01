@@ -29,7 +29,7 @@ repos:
   - id: pytest
     name: pytest
     language: python
-    entry: env PYTHONPATH=. pytest
+    entry: pytest
     args: [-vv]
     types: [python]
     pass_filenames: false
@@ -72,7 +72,7 @@ repos:
     args: [-i]
     additional_dependencies: [toml]
 - repo: https://github.com/PyCQA/isort
-  rev: 9.0.0b5
+  rev: 9.0.1
   hooks:
   - id: isort
 ci:
