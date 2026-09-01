@@ -1,0 +1,259 @@
+<!-- https://github.com/squidfunk/mkdocs-material/blob/master/src/templates/base.html --> <!doctype html><html lang=en class=no-js> <head><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><meta name=description content="Automagic shell tab completion for Python CLI applications"><meta name=author content="Casper da Costa-Luis"><link href=https://tqdm.github.io/shtab/use/ rel=canonical><link rel=prev href=..><link href=../ref/ rel=next><link rel=icon href=https://github.com/tqdm/shtab/raw/main/meta/logo.png><meta name=generator content="mkdocs-1.6.1, mkdocs-material-9.7.7"><title>Usage - shtab documentation</title><link rel=stylesheet href=../assets/stylesheets/main.ec1eaa64.min.css><link rel=stylesheet href=../assets/stylesheets/palette.ab4e12ef.min.css><link rel=preconnect href=https://fonts.gstatic.com crossorigin><link rel=stylesheet href="https://fonts.googleapis.com/css?family=Roboto:300,300i,400,400i,700,700i%7CRoboto+Mono:400,400i,700,700i&display=fallback"><style>:root{--md-text-font:"Roboto";--md-code-font:"Roboto Mono"}</style><script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,_)=>(e<<5)-e+_.charCodeAt(0)),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script><script defer data-domain=tqdm.github.io src=https://plausible.cdcl.ml/js/script.js></script><script async src=https://media.ethicalads.io/media/client/ethicalads.min.js crossorigin=anonymous></script><meta name=google-site-verification content=n_D8n0G1f7KHMv7VVD1_heCOPL-MLaG-5jtv17fXmIQ></head> <body dir=ltr data-md-color-scheme=default data-md-color-primary=white data-md-color-accent=indigo> <input class=md-toggle data-md-toggle=drawer type=checkbox id=__drawer autocomplete=off> <input class=md-toggle data-md-toggle=search type=checkbox id=__search autocomplete=off> <label class=md-overlay for=__drawer></label> <div data-md-component=skip> <a href=#usage class=md-skip> Skip to content </a> </div> <div data-md-component=announce> </div> <header class="md-header md-header--shadow" data-md-component=header> <nav class="md-header__inner md-grid" aria-label=Header> <a href=.. title="shtab documentation" class="md-header__button md-logo" aria-label="shtab documentation" data-md-component=logo> <img src=https://github.com/tqdm/shtab/raw/main/meta/logo.png alt=logo> </a> <label class="md-header__button md-icon" for=__drawer> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M3 6h18v2H3zm0 5h18v2H3zm0 5h18v2H3z"/></svg> </label> <div class=md-header__title data-md-component=header-title> <div class=md-header__ellipsis> <div class=md-header__topic> <span class=md-ellipsis> shtab documentation </span> </div> <div class=md-header__topic data-md-component=header-topic> <span class=md-ellipsis> Usage </span> </div> </div> </div> <form class=md-header__option data-md-component=palette> <input class=md-option data-md-color-media data-md-color-scheme=default data-md-color-primary=white data-md-color-accent=indigo aria-label="Switch to dark mode" type=radio name=__palette id=__palette_0> <label class="md-header__button md-icon" title="Switch to dark mode" for=__palette_1 hidden> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M17 6H7c-3.31 0-6 2.69-6 6s2.69 6 6 6h10c3.31 0 6-2.69 6-6s-2.69-6-6-6m0 10H7c-2.21 0-4-1.79-4-4s1.79-4 4-4h10c2.21 0 4 1.79 4 4s-1.79 4-4 4M7 9c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3"/></svg> </label> <input class=md-option data-md-color-media data-md-color-scheme=slate data-md-color-primary=orange data-md-color-accent=indigo aria-label="Switch to light mode" type=radio name=__palette id=__palette_1> <label class="md-header__button md-icon" title="Switch to light mode" for=__palette_0 hidden> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M17 7H7a5 5 0 0 0-5 5 5 5 0 0 0 5 5h10a5 5 0 0 0 5-5 5 5 0 0 0-5-5m0 8a3 3 0 0 1-3-3 3 3 0 0 1 3-3 3 3 0 0 1 3 3 3 3 0 0 1-3 3"/></svg> </label> </form> <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script> <label class="md-header__button md-icon" for=__search> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg> </label> <div class=md-search data-md-component=search role=dialog> <label class=md-search__overlay for=__search></label> <div class=md-search__inner role=search> <form class=md-search__form name=search> <input type=text class=md-search__input name=query aria-label=Search placeholder=Search autocapitalize=off autocorrect=off autocomplete=off spellcheck=false data-md-component=search-query required> <label class="md-search__icon md-icon" for=__search> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.52 6.52 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5"/></svg> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11z"/></svg> </label> <nav class=md-search__options aria-label=Search> <button type=reset class="md-search__icon md-icon" title=Clear aria-label=Clear tabindex=-1> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg> </button> </nav> </form> <div class=md-search__output> <div class=md-search__scrollwrap tabindex=0 data-md-scrollfix> <div class=md-search-result data-md-component=search-result> <div class=md-search-result__meta> Initializing search </div> <ol class=md-search-result__list role=presentation></ol> </div> </div> </div> </div> </div> <div class=md-header__source> <a href=https://github.com/tqdm/shtab title="Go to repository" class=md-source data-md-component=source> <div class="md-source__icon md-icon"> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 448 512"><!-- Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg> </div> <div class=md-source__repository> tqdm/shtab </div> </a> </div> </nav> </header> <div class=md-container data-md-component=container> <main class=md-main data-md-component=main> <div class="md-main__inner md-grid"> <div class="md-sidebar md-sidebar--primary" data-md-component=sidebar data-md-type=navigation> <div class=md-sidebar__scrollwrap> <div class=md-sidebar__inner> <nav class="md-nav md-nav--primary" aria-label=Navigation data-md-level=0> <label class=md-nav__title for=__drawer> <a href=.. title="shtab documentation" class="md-nav__button md-logo" aria-label="shtab documentation" data-md-component=logo> <img src=https://github.com/tqdm/shtab/raw/main/meta/logo.png alt=logo> </a> shtab documentation </label> <div class=md-nav__source> <a href=https://github.com/tqdm/shtab title="Go to repository" class=md-source data-md-component=source> <div class="md-source__icon md-icon"> <svg xmlns=http://www.w3.org/2000/svg viewbox="0 0 448 512"><!-- Font Awesome Free 7.1.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2025 Fonticons, Inc.--><path d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg> </div> <div class=md-source__repository> tqdm/shtab </div> </a> </div> <ul class=md-nav__list data-md-scrollfix> <li class=md-nav__item> <a href=.. class=md-nav__link> <span class=md-ellipsis> Home </span> </a> </li> <li class="md-nav__item md-nav__item--active"> <input class="md-nav__toggle md-toggle" type=checkbox id=__toc> <label class="md-nav__link md-nav__link--active" for=__toc> <span class=md-ellipsis> Usage </span> <span class="md-nav__icon md-icon"></span> </label> <a href=./ class="md-nav__link md-nav__link--active"> <span class=md-ellipsis> Usage </span> </a> <!-- https://github.com/squidfunk/mkdocs-material/blob/master/src/templates/partials/toc.html --> <nav class="md-nav md-nav--secondary" aria-label="Table of contents"> <label class=md-nav__title for=__toc> <span class="md-nav__icon md-icon"></span> Table of contents </label> <ul class=md-nav__list data-md-component=toc data-md-scrollfix> <li class=md-nav__item> <a href=#cli-usage class=md-nav__link> <span class=md-ellipsis> CLI Usage </span> </a> <nav class=md-nav aria-label="CLI Usage"> <ul class=md-nav__list> <li class=md-nav__item> <a href=#argparse class=md-nav__link> <span class=md-ellipsis> argparse </span> </a> </li> <li class=md-nav__item> <a href=#click class=md-nav__link> <span class=md-ellipsis> click </span> </a> </li> </ul> </nav> </li> <li class=md-nav__item> <a href=#library-usage class=md-nav__link> <span class=md-ellipsis> Library Usage </span> </a> </li> </ul> <!-- secnav --> <div class="adaptive flat" data-ea-publisher=tqdmgithubio data-ea-type=image id=manual></div> </nav> </li> <li class=md-nav__item> <a href=../ref/ class=md-nav__link> <span class=md-ellipsis> Reference </span> </a> </li> <li class=md-nav__item> <a href=https://github.com/tqdm/shtab class=md-nav__link> <span class=md-ellipsis> ↗ Source Code </span> </a> </li> <li class=md-nav__item> <a href=https://github.com/tqdm/shtab/releases class=md-nav__link> <span class=md-ellipsis> ↗ Changelog </span> </a> </li> <li class=md-nav__item> <a href=https://github.com/tqdm/shtab/issues class=md-nav__link> <span class=md-ellipsis> ↗ Issues </span> </a> </li> <li class=md-nav__item> <a href=https://github.com/tqdm/shtab/blob/main/CONTRIBUTING.md class=md-nav__link> <span class=md-ellipsis> ↗ Contributing </span> </a> </li> <li class=md-nav__item> <a href=https://github.com/tqdm/shtab/blob/main/LICENCE class=md-nav__link> <span class=md-ellipsis> ↗ Licence </span> </a> </li> </ul> </nav> </div> </div> </div> <div class="md-sidebar md-sidebar--secondary" data-md-component=sidebar data-md-type=toc> <div class=md-sidebar__scrollwrap> <div class=md-sidebar__inner> <!-- https://github.com/squidfunk/mkdocs-material/blob/master/src/templates/partials/toc.html --> <nav class="md-nav md-nav--secondary" aria-label="Table of contents"> <label class=md-nav__title for=__toc> <span class="md-nav__icon md-icon"></span> Table of contents </label> <ul class=md-nav__list data-md-component=toc data-md-scrollfix> <li class=md-nav__item> <a href=#cli-usage class=md-nav__link> <span class=md-ellipsis> CLI Usage </span> </a> <nav class=md-nav aria-label="CLI Usage"> <ul class=md-nav__list> <li class=md-nav__item> <a href=#argparse class=md-nav__link> <span class=md-ellipsis> argparse </span> </a> </li> <li class=md-nav__item> <a href=#click class=md-nav__link> <span class=md-ellipsis> click </span> </a> </li> </ul> </nav> </li> <li class=md-nav__item> <a href=#library-usage class=md-nav__link> <span class=md-ellipsis> Library Usage </span> </a> </li> </ul> <!-- secnav --> <div class="adaptive flat" data-ea-publisher=tqdmgithubio data-ea-type=image id=manual></div> </nav> </div> </div> </div> <div class=md-content data-md-component=content> <article class="md-content__inner md-typeset"> <h1 id=usage>Usage<a class=headerlink href=#usage title="Permanent link">#</a></h1> <p>There are two ways of using <code>shtab</code>:</p> <ul> <li><a href=#cli-usage>CLI Usage</a>: <code>shtab</code>'s own CLI interface for external applications<ul> <li>may not require any code modifications whatsoever</li> <li>end-users execute <code>shtab your_cli_app.your_parser_object</code></li> </ul> </li> <li><a href=#library-usage>Library Usage</a>: as a library integrated into your CLI application<ul> <li>adds a couple of lines to your application</li> <li>argument mode: end-users execute <code>your_cli_app --print-completion {bash,zsh,tcsh,fish,powershell}</code></li> <li>subparser mode: end-users execute <code>your_cli_app completion {bash,zsh,tcsh,fish,powershell}</code></li> </ul> </li> </ul> <h2 id=cli-usage>CLI Usage<a class=headerlink href=#cli-usage title="Permanent link">#</a></h2> <p>The only requirement is that external CLI applications provide an importable <code>argparse.ArgumentParser</code> object (or alternatively an importable function which returns a parser object). This may require a trivial code change.</p> <p>Then simply put the output of <code>shtab --shell=your_shell your_cli_app.your_parser_object</code> <a href=../#scripts>somewhere</a> your shell looks for completions.</p> <p>Below are various examples of enabling <code>shtab</code>'s own tab completion scripts.</p> <div class="admonition info"> <p class=admonition-title>Info</p> <p>If both <code>shtab</code> and the module it's completing are globally importable, eager usage is an option. "Eager" means automatically updating completions each time a terminal is opened, and likely should <em>not</em> use the <code>-u, --error-unimportable</code> flag.</p> <p>Terminal start might be slow if scripts are very complex.</p> </div> <div class="tabbed-set tabbed-alternate" data-tabs=1:5><input checked=checked id=__tabbed_1_1 name=__tabbed_1 type=radio><input id=__tabbed_1_2 name=__tabbed_1 type=radio><input id=__tabbed_1_3 name=__tabbed_1 type=radio><input id=__tabbed_1_4 name=__tabbed_1 type=radio><input id=__tabbed_1_5 name=__tabbed_1 type=radio><div class=tabbed-labels><label for=__tabbed_1_1>bash</label><label for=__tabbed_1_2>zsh</label><label for=__tabbed_1_3>tcsh</label><label for=__tabbed_1_4>fish</label><label for=__tabbed_1_5>powershell</label></div> <div class=tabbed-content> <div class=tabbed-block> <div class=highlight><pre><span></span><code>shtab<span class=w> </span>-u<span class=w> </span>--shell<span class=o>=</span>bash<span class=w> </span>shtab.main.get_main_parser<span class=w> </span><span class=se>\</span>
+<span class=w>  </span><span class=p>|</span><span class=w> </span>sudo<span class=w> </span>tee<span class=w> </span>/etc/bash_completion.d/shtab
+</code></pre></div> <p><em>Eager</em></p> <div class=highlight><pre><span></span><code><span class=c1># Install locally</span>
+<span class=nb>echo</span><span class=w> </span><span class=s1>'eval "$(shtab --shell=bash shtab.main.get_main_parser)"'</span><span class=w> </span><span class=se>\</span>
+<span class=w>  </span>&gt;&gt;<span class=w> </span>~/.bash_completion
+
+<span class=c1># Install system-wide (pkg-config bash-completion --variable=compatdir)</span>
+<span class=nb>echo</span><span class=w> </span><span class=s1>'eval "$(shtab --shell=bash shtab.main.get_main_parser)"'</span><span class=w> </span><span class=se>\</span>
+<span class=w>  </span><span class=p>|</span><span class=w> </span>sudo<span class=w> </span>tee<span class=w> </span>/etc/bash_completion.d/shtab
+
+<span class=c1># Install system-wide (pkg-config bash-completion --variable=completionsdir)</span>
+<span class=nb>echo</span><span class=w> </span><span class=s1>'eval "$(shtab --shell=bash shtab.main.get_main_parser)"'</span><span class=w> </span><span class=se>\</span>
+<span class=w>  </span><span class=p>|</span><span class=w> </span>sudo<span class=w> </span>tee<span class=w> </span>/usr/share/bash-completion/completions/shtab
+</code></pre></div> </div> <div class=tabbed-block> <div class="admonition info"> <p class=admonition-title>Info</p> <p><code>zsh</code> requires completion script files to be named <code>_{EXECUTABLE}</code> (with an underscore prefix).</p> </div> <div class=highlight><pre><span></span><code><span class=c1># note the underscore `_` prefix</span>
+shtab<span class=w> </span>-u<span class=w> </span>--shell<span class=o>=</span>zsh<span class=w> </span>shtab.main.get_main_parser<span class=w> </span><span class=se>\</span>
+<span class=w>  </span><span class=p>|</span><span class=w> </span>sudo<span class=w> </span>tee<span class=w> </span>/usr/local/share/zsh/site-functions/_shtab
+</code></pre></div> <p><em>Eager</em></p> <p>Place the generated script somewhere in <code>$fpath</code>. For example, add these lines <em>to the top</em> of <code>~/.zshrc</code>:</p> <div class=highlight><pre><span></span><code>mkdir<span class=w> </span>-p<span class=w> </span>~/.zsh/completions
+<span class=nv>fpath</span><span class=o>=(</span><span class=nv>$fpath</span><span class=w> </span>~/.zsh/completions<span class=o>)</span><span class=w>  </span><span class=c1># must be before `compinit` lines</span>
+shtab<span class=w> </span>--shell<span class=o>=</span>zsh<span class=w> </span>shtab.main.get_main_parser<span class=w> </span>-o<span class=w> </span>~/.zsh/completions/_shtab
+</code></pre></div> </div> <div class=tabbed-block> <div class=highlight><pre><span></span><code>shtab<span class=w> </span>-u<span class=w> </span>--shell<span class=o>=</span>tcsh<span class=w> </span>shtab.main.get_main_parser<span class=w> </span><span class=se>\</span>
+<span class=w>  </span><span class=p>|</span><span class=w> </span>sudo<span class=w> </span>tee<span class=w> </span>/etc/profile.d/completion_shtab.csh
+</code></pre></div> <p><em>Eager</em></p> <div class=highlight><pre><span></span><code><span class=c1># Install locally</span>
+<span class=nb>echo</span><span class=w> </span><span class=s1>'shtab --shell=tcsh shtab.main.get_main_parser | source /dev/stdin'</span><span class=w> </span><span class=se>\</span>
+<span class=w>  </span>&gt;&gt;<span class=w> </span>~/.cshrc
+
+<span class=c1># Install system-wide</span>
+<span class=nb>echo</span><span class=w> </span><span class=s1>'shtab --shell=tcsh shtab.main.get_main_parser | source /dev/stdin'</span><span class=w> </span><span class=se>\</span>
+<span class=w>  </span><span class=p>|</span><span class=w> </span>sudo<span class=w> </span>tee<span class=w> </span>/etc/profile.d/completion_shtab.csh
+</code></pre></div> </div> <div class=tabbed-block> <div class=highlight><pre><span></span><code><span class=c1># Install locally</span>
+shtab<span class=w> </span>-u<span class=w> </span>--shell<span class=o>=</span>fish<span class=w> </span>shtab.main.get_main_parser<span class=w> </span><span class=se>\</span>
+<span class=w>  </span>-o<span class=w> </span>~/.config/fish/completions/shtab.fish
+
+<span class=c1># Install system-wide (pkg-config fish --variable=completionsdir)</span>
+shtab<span class=w> </span>-u<span class=w> </span>--shell<span class=o>=</span>fish<span class=w> </span>shtab.main.get_main_parser<span class=w> </span><span class=se>\</span>
+<span class=w>  </span><span class=p>|</span><span class=w> </span>sudo<span class=w> </span>tee<span class=w> </span>/usr/share/fish/vendor_completions.d/shtab.fish
+</code></pre></div> </div> <div class=tabbed-block> <div class="admonition info"> <p class=admonition-title>Info</p> <p>PowerShell 7+ (<code>pwsh</code>) is fully supported, while Windows PowerShell 5 (<code>powershell.exe</code>) is only partially supported.</p> </div> <div class=highlight><pre><span></span><code><span class=nb>New-Item</span> <span class=n>-Path</span> <span class=p>~\.</span><span class=n>config</span><span class=p>\</span><span class=n>powershell</span><span class=p>\</span><span class=n>completions</span> <span class=n>-ItemType</span> <span class=n>Directory</span> <span class=n>-Force</span>
+<span class=n>shtab</span> <span class=p>-</span><span class=n>-shell</span><span class=p>=</span><span class=n>powershell</span> <span class=n>shtab</span><span class=p>.</span><span class=n>main</span><span class=p>.</span><span class=n>get_main_parser</span> <span class=p>-</span><span class=n>-error-unimportable</span> <span class=p>`</span>
+  <span class=p>|</span> <span class=nb>Out-File</span> <span class=n>-FilePath</span> <span class=p>~\.</span><span class=n>config</span><span class=p>\</span><span class=n>powershell</span><span class=p>\</span><span class=n>completions</span><span class=p>\</span><span class=n>shtab</span><span class=p>.</span><span class=n>ps1</span>
+<span class=c># Add to $PROFILE:</span>
+<span class=p>.</span> <span class=p>~\.</span><span class=n>config</span><span class=p>\</span><span class=n>powershell</span><span class=p>\</span><span class=n>completions</span><span class=p>\</span><span class=n>shtab</span><span class=p>.</span><span class=n>ps1</span>
+</code></pre></div> <p>Eager:</p> <p>Add the following to your PowerShell profile (<code>$PROFILE</code>):</p> <div class=highlight><pre><span></span><code><span class=n>shtab</span> <span class=p>-</span><span class=n>-shell</span><span class=p>=</span><span class=n>powershell</span> <span class=n>shtab</span><span class=p>.</span><span class=n>main</span><span class=p>.</span><span class=n>get_main_parser</span> <span class=p>`</span>
+  <span class=p>|</span> <span class=nb>Out-String</span> <span class=p>|</span> <span class=nb>Invoke-Expression</span>
+</code></pre></div> <p>Or save to a file and dot-source it from your profile:</p> <div class=highlight><pre><span></span><code><span class=nb>New-Item</span> <span class=n>-Path</span> <span class=p>~\.</span><span class=n>config</span><span class=p>\</span><span class=n>powershell</span><span class=p>\</span><span class=n>completions</span> <span class=n>-ItemType</span> <span class=n>Directory</span> <span class=n>-Force</span>
+<span class=n>shtab</span> <span class=p>-</span><span class=n>-shell</span><span class=p>=</span><span class=n>powershell</span> <span class=n>shtab</span><span class=p>.</span><span class=n>main</span><span class=p>.</span><span class=n>get_main_parser</span> <span class=p>`</span>
+  <span class=p>|</span> <span class=nb>Out-File</span> <span class=n>-FilePath</span> <span class=p>~\.</span><span class=n>config</span><span class=p>\</span><span class=n>powershell</span><span class=p>\</span><span class=n>completions</span><span class=p>\</span><span class=n>shtab</span><span class=p>.</span><span class=n>ps1</span>
+<span class=c># Add to $PROFILE:</span>
+<span class=p>.</span> <span class=p>~\.</span><span class=n>config</span><span class=p>\</span><span class=n>powershell</span><span class=p>\</span><span class=n>completions</span><span class=p>\</span><span class=n>shtab</span><span class=p>.</span><span class=n>ps1</span>
+</code></pre></div> </div> </div> </div> <h3 id=argparse>argparse<a class=headerlink href=#argparse title="Permanent link">#</a></h3> <p>Any existing <code>argparse</code>-based scripts should be supported with minimal effort. For example, starting with this existing code:</p> <div id=main.py class=highlight><table class=highlighttable><tr><th colspan=2 class=filename><span class=filename>main.py</span></th></tr><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal> 1</span>
+<span class=normal> 2</span>
+<span class=normal> 3</span>
+<span class=normal> 4</span>
+<span class=normal> 5</span>
+<span class=normal> 6</span>
+<span class=normal> 7</span>
+<span class=normal> 8</span>
+<span class=normal> 9</span>
+<span class=normal>10</span>
+<span class=normal>11</span>
+<span class=normal>12</span>
+<span class=normal>13</span>
+<span class=normal>14</span></pre></div></td><td class=code><div><pre><span></span><code><span class=ch>#!/usr/bin/env python</span>
+<span class=kn>import</span><span class=w> </span><span class=nn>argparse</span>
+
+<span class=k>def</span><span class=w> </span><span class=nf>get_main_parser</span><span class=p>():</span>
+    <span class=n>parser</span> <span class=o>=</span> <span class=n>argparse</span><span class=o>.</span><span class=n>ArgumentParser</span><span class=p>(</span><span class=n>prog</span><span class=o>=</span><span class=s2>"MY-PROG"</span><span class=p>,</span> <span class=o>...</span><span class=p>)</span>
+    <span class=n>parser</span><span class=o>.</span><span class=n>add_argument</span><span class=p>(</span><span class=o>...</span><span class=p>)</span>
+    <span class=n>parser</span><span class=o>.</span><span class=n>add_subparsers</span><span class=p>(</span><span class=o>...</span><span class=p>)</span>
+    <span class=o>...</span>
+    <span class=k>return</span> <span class=n>parser</span>
+
+<span class=k>if</span> <span class=vm>__name__</span> <span class=o>==</span> <span class=s1>'__main__'</span><span class=p>:</span>
+    <span class=n>parser</span> <span class=o>=</span> <span class=n>get_main_parser</span><span class=p>()</span>
+    <span class=n>args</span> <span class=o>=</span> <span class=n>parser</span><span class=o>.</span><span class=n>parse_args</span><span class=p>()</span>
+    <span class=o>...</span>
+</code></pre></div></td></tr></table></div> <p>Assuming this code example is installed in <code>MY_PROG.cli</code>, simply run:</p> <div class="tabbed-set tabbed-alternate" data-tabs=2:5><input checked=checked id=__tabbed_2_1 name=__tabbed_2 type=radio><input id=__tabbed_2_2 name=__tabbed_2 type=radio><input id=__tabbed_2_3 name=__tabbed_2 type=radio><input id=__tabbed_2_4 name=__tabbed_2 type=radio><input id=__tabbed_2_5 name=__tabbed_2 type=radio><div class=tabbed-labels><label for=__tabbed_2_1>bash</label><label for=__tabbed_2_2>zsh</label><label for=__tabbed_2_3>tcsh</label><label for=__tabbed_2_4>fish</label><label for=__tabbed_2_5>powershell</label></div> <div class=tabbed-content> <div class=tabbed-block> <div class=highlight><pre><span></span><code>shtab<span class=w> </span>--shell<span class=o>=</span>bash<span class=w> </span>-u<span class=w> </span>MY_PROG.cli.get_main_parser<span class=w> </span><span class=se>\</span>
+<span class=w>  </span><span class=p>|</span><span class=w> </span>sudo<span class=w> </span>tee<span class=w> </span>/etc/bash_completion.d/MY-PROG
+</code></pre></div> </div> <div class=tabbed-block> <div class=highlight><pre><span></span><code>shtab<span class=w> </span>--shell<span class=o>=</span>zsh<span class=w> </span>-u<span class=w> </span>MY_PROG.cli.get_main_parser<span class=w> </span><span class=se>\</span>
+<span class=w>  </span><span class=p>|</span><span class=w> </span>sudo<span class=w> </span>tee<span class=w> </span>/usr/local/share/zsh/site-functions/_MY-PROG
+</code></pre></div> </div> <div class=tabbed-block> <div class=highlight><pre><span></span><code>shtab<span class=w> </span>--shell<span class=o>=</span>tcsh<span class=w> </span>-u<span class=w> </span>MY_PROG.cli.get_main_parser<span class=w> </span><span class=se>\</span>
+<span class=w>  </span><span class=p>|</span><span class=w> </span>sudo<span class=w> </span>tee<span class=w> </span>/etc/profile.d/MY-PROG.completion.csh
+</code></pre></div> </div> <div class=tabbed-block> <div class=highlight><pre><span></span><code>shtab<span class=w> </span>--shell<span class=o>=</span>fish<span class=w> </span>-u<span class=w> </span>MY_PROG.cli.get_main_parser<span class=w> </span><span class=se>\</span>
+<span class=w>  </span><span class=p>|</span><span class=w> </span>sudo<span class=w> </span>tee<span class=w> </span>/usr/share/fish/vendor_completions.d/MY-PROG.fish
+</code></pre></div> </div> <div class=tabbed-block> <div class=highlight><pre><span></span><code><span class=nb>New-Item</span> <span class=n>-Path</span> <span class=p>~\.</span><span class=n>config</span><span class=p>\</span><span class=n>powershell</span><span class=p>\</span><span class=n>completions</span> <span class=n>-ItemType</span> <span class=n>Directory</span> <span class=n>-Force</span>
+<span class=n>shtab</span> <span class=p>-</span><span class=n>-shell</span><span class=p>=</span><span class=n>powershell</span> <span class=n>-u</span> <span class=n>MY_PROG</span><span class=p>.</span><span class=n>cli</span><span class=p>.</span><span class=n>get_main_parser</span> <span class=p>`</span>
+  <span class=p>|</span> <span class=nb>Out-File</span> <span class=n>-FilePath</span> <span class=p>~\.</span><span class=n>config</span><span class=p>\</span><span class=n>powershell</span><span class=p>\</span><span class=n>completions</span><span class=p>\</span><span class=n>MY-PROG</span><span class=p>.</span><span class=n>ps1</span>
+<span class=p>.</span> <span class=p>~\.</span><span class=n>config</span><span class=p>\</span><span class=n>powershell</span><span class=p>\</span><span class=n>completions</span><span class=p>\</span><span class=n>MY-PROG</span><span class=p>.</span><span class=n>ps1</span>
+</code></pre></div> </div> </div> </div> <h3 id=click>click<a class=headerlink href=#click title="Permanent link">#</a></h3> <p>Speedup <code>click</code>'s completions (and get support for more shell types) by changing from e.g. <code>_MY_PROG_COMPLETE=bash_source MY-PROG</code> to <code>shtab MY_PROG.cli.main --prog MY-PROG -s bash</code></p> <h2 id=library-usage>Library Usage<a class=headerlink href=#library-usage title="Permanent link">#</a></h2> <div class="admonition tip"> <p class=admonition-title>Tip</p> <p>For more, see:</p> <ul> <li><code>shtab</code>'s own <a href=https://github.com/tqdm/shtab/tree/main/examples>examples/</a> folder</li> <li><a href=https://github.com/casperdcl/git-fame/commit/d2577f821368fd2337e975dc6a31ce73ab09e7ed>git-fame#135</a> for how to migrate to using <code>shtab</code> in a real project</li> </ul> </div> <p>Complex projects with subparsers and custom completions for paths matching certain patterns (e.g. <code>--file=*.txt</code> or <code>--branch=$(git branch)</code>) are fully supported (see <a href=https://github.com/tqdm/shtab/blob/main/examples/customcomplete.py>examples/customcomplete.py</a> or even <a href=https://github.com/treeverse/dvc/blob/main/dvc/commands/completion.py>treeverse/dvc:commands/completion.py</a> for example).</p> <p>Add direct support to scripts for a little more configurability:</p> <div class="tabbed-set tabbed-alternate" data-tabs=3:4><input checked=checked id=__tabbed_3_1 name=__tabbed_3 type=radio><input id=__tabbed_3_2 name=__tabbed_3 type=radio><input id=__tabbed_3_3 name=__tabbed_3 type=radio><input id=__tabbed_3_4 name=__tabbed_3 type=radio><div class=tabbed-labels><label for=__tabbed_3_1>argparse</label><label for=__tabbed_3_2>docopt</label><label for=__tabbed_3_3>click.command</label><label for=__tabbed_3_4>click.group</label></div> <div class=tabbed-content> <div class=tabbed-block> <div class=highlight><table class=highlighttable><tr><th colspan=2 class=filename><span class=filename>pathcomplete.py</span></th></tr><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal> 1</span>
+<span class=normal> 2</span>
+<span class=normal> 3</span>
+<span class=normal> 4</span>
+<span class=normal> 5</span>
+<span class=normal> 6</span>
+<span class=normal> 7</span>
+<span class=normal> 8</span>
+<span class=normal> 9</span>
+<span class=normal>10</span>
+<span class=normal>11</span>
+<span class=normal>12</span>
+<span class=normal>13</span>
+<span class=normal>14</span>
+<span class=normal>15</span>
+<span class=normal>16</span>
+<span class=normal>17</span>
+<span class=normal>18</span>
+<span class=normal>19</span>
+<span class=normal>20</span></pre></div></td><td class=code><div><pre><span></span><code><span class=ch>#!/usr/bin/env python</span>
+<span class=kn>import</span><span class=w> </span><span class=nn>argparse</span><span class=o>,</span><span class=w> </span><span class=nn>shtab</span>
+
+<span class=n>parser</span> <span class=o>=</span> <span class=n>argparse</span><span class=o>.</span><span class=n>ArgumentParser</span><span class=p>(</span><span class=n>prog</span><span class=o>=</span><span class=s2>"pathcomplete"</span><span class=p>)</span>
+<span class=hll><span class=n>shtab</span><span class=o>.</span><span class=n>add_argument_to</span><span class=p>(</span><span class=n>parser</span><span class=p>,</span> <span class=p>[</span><span class=s2>"-s"</span><span class=p>,</span> <span class=s2>"--print-completion"</span><span class=p>])</span>  <span class=c1># magic!</span>
+</span><span class=c1># file &amp; directory tab complete</span>
+<span class=hll><span class=n>parser</span><span class=o>.</span><span class=n>add_argument</span><span class=p>(</span><span class=s2>"file"</span><span class=p>,</span> <span class=n>nargs</span><span class=o>=</span><span class=s2>"?"</span><span class=p>)</span><span class=o>.</span><span class=n>complete</span> <span class=o>=</span> <span class=n>shtab</span><span class=o>.</span><span class=n>FILE</span>
+</span><span class=hll><span class=n>parser</span><span class=o>.</span><span class=n>add_argument</span><span class=p>(</span><span class=s2>"--dir"</span><span class=p>,</span> <span class=n>default</span><span class=o>=</span><span class=s2>"."</span><span class=p>)</span><span class=o>.</span><span class=n>complete</span> <span class=o>=</span> <span class=n>shtab</span><span class=o>.</span><span class=n>DIRECTORY</span>
+</span><span class=n>parser</span><span class=o>.</span><span class=n>add_argument</span><span class=p>(</span><span class=s2>"--config"</span><span class=p>)</span>\
+<span class=hll>  <span class=o>.</span><span class=n>complete</span> <span class=o>=</span> <span class=n>shtab</span><span class=o>.</span><span class=n>glob</span><span class=p>(</span><span class=s1>'*.toml'</span><span class=p>,</span> <span class=s1>'*.yml'</span><span class=p>,</span> <span class=s1>'*.yaml'</span><span class=p>,</span> <span class=s1>'*.json'</span><span class=p>)</span>
+</span><span class=c1># WARNING: shtab.cmd is (re)run by your shell on each tab press, so could be slow</span>
+<span class=n>parser</span><span class=o>.</span><span class=n>add_argument</span><span class=p>(</span><span class=s2>"--branch"</span><span class=p>,</span> <span class=n>help</span><span class=o>=</span><span class=s2>"git branch from current workdir"</span><span class=p>)</span>\
+<span class=hll>  <span class=o>.</span><span class=n>complete</span> <span class=o>=</span> <span class=n>shtab</span><span class=o>.</span><span class=n>cmd</span><span class=p>(</span><span class=s2>"git branch"</span><span class=p>)</span>
+</span>
+<span class=k>def</span><span class=w> </span><span class=nf>main</span><span class=p>(</span><span class=n>args</span><span class=o>=</span><span class=kc>None</span><span class=p>):</span>
+    <span class=n>args</span> <span class=o>=</span> <span class=n>parser</span><span class=o>.</span><span class=n>parse_args</span><span class=p>(</span><span class=n>args</span><span class=o>=</span><span class=n>args</span><span class=p>)</span>
+    <span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>"received &lt;file&gt;=</span><span class=si>{</span><span class=n>args</span><span class=o>.</span><span class=n>file</span><span class=si>}</span><span class=s2> --dir=</span><span class=si>{</span><span class=n>args</span><span class=o>.</span><span class=n>dir</span><span class=si>}</span><span class=s2>"</span>
+          <span class=sa>f</span><span class=s2>" --config=</span><span class=si>{</span><span class=n>args</span><span class=o>.</span><span class=n>config</span><span class=si>}</span><span class=s2> --branch=</span><span class=si>{</span><span class=n>args</span><span class=o>.</span><span class=n>branch</span><span class=si>}</span><span class=s2>"</span><span class=p>)</span>
+<span class=k>if</span> <span class=vm>__name__</span> <span class=o>==</span> <span class=s1>'__main__'</span><span class=p>:</span>
+    <span class=n>main</span><span class=p>()</span>
+</code></pre></div></td></tr></table></div> </div> <div class=tabbed-block> <p>Simply use <a href=https://pypi.org/project/argopt>argopt</a> to create a parser object from <a href=https://pypi.org/project/docopt>docopt</a> syntax:</p> <div class=highlight><table class=highlighttable><tr><th colspan=2 class=filename><span class=filename>docopt_greeter.py</span></th></tr><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal> 1</span>
+<span class=normal> 2</span>
+<span class=normal> 3</span>
+<span class=normal> 4</span>
+<span class=normal> 5</span>
+<span class=normal> 6</span>
+<span class=normal> 7</span>
+<span class=normal> 8</span>
+<span class=normal> 9</span>
+<span class=normal>10</span>
+<span class=normal>11</span>
+<span class=normal>12</span>
+<span class=normal>13</span>
+<span class=normal>14</span>
+<span class=normal>15</span>
+<span class=normal>16</span>
+<span class=normal>17</span>
+<span class=normal>18</span>
+<span class=normal>19</span>
+<span class=normal>20</span>
+<span class=normal>21</span>
+<span class=normal>22</span></pre></div></td><td class=code><div><pre><span></span><code><span class=ch>#!/usr/bin/env python</span>
+<span class=sd>"""Greetings and partings.</span>
+
+<span class=sd>Usage:</span>
+<span class=sd>  greeter [options] [&lt;you&gt;] [&lt;me&gt;]</span>
+
+<span class=sd>Options:</span>
+<span class=sd>  -g, --goodbye  : Say "goodbye" (instead of "hello")</span>
+
+<span class=sd>Arguments:</span>
+<span class=sd>  &lt;you&gt;  : Your name [default: Anon]</span>
+<span class=sd>  &lt;me&gt;  : My name [default: Casper]</span>
+<span class=sd>"""</span>
+<span class=kn>import</span><span class=w> </span><span class=nn>argopt</span><span class=o>,</span><span class=w> </span><span class=nn>shtab</span>
+<span class=n>parser</span> <span class=o>=</span> <span class=n>argopt</span><span class=o>.</span><span class=n>argopt</span><span class=p>(</span><span class=vm>__doc__</span><span class=p>)</span>
+<span class=hll><span class=n>shtab</span><span class=o>.</span><span class=n>add_argument_to</span><span class=p>(</span><span class=n>parser</span><span class=p>,</span> <span class=p>[</span><span class=s2>"-s"</span><span class=p>,</span> <span class=s2>"--print-completion"</span><span class=p>])</span>  <span class=c1># magic!</span>
+</span><span class=k>def</span><span class=w> </span><span class=nf>main</span><span class=p>(</span><span class=n>args</span><span class=o>=</span><span class=kc>None</span><span class=p>):</span>
+    <span class=n>args</span> <span class=o>=</span> <span class=n>parser</span><span class=o>.</span><span class=n>parse_args</span><span class=p>(</span><span class=n>args</span><span class=o>=</span><span class=n>args</span><span class=p>)</span>
+    <span class=n>msg</span> <span class=o>=</span> <span class=s2>"k thx bai!"</span> <span class=k>if</span> <span class=n>args</span><span class=o>.</span><span class=n>goodbye</span> <span class=k>else</span> <span class=s2>"hai!"</span>
+    <span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>"</span><span class=si>{</span><span class=n>args</span><span class=o>.</span><span class=n>me</span><span class=si>}</span><span class=s2> says '</span><span class=si>{</span><span class=n>msg</span><span class=si>}</span><span class=s2>' to </span><span class=si>{</span><span class=n>args</span><span class=o>.</span><span class=n>you</span><span class=si>}</span><span class=s2>"</span><span class=p>)</span>
+<span class=k>if</span> <span class=vm>__name__</span> <span class=o>==</span> <span class=s1>'__main__'</span><span class=p>:</span>
+    <span class=n>main</span><span class=p>()</span>
+</code></pre></div></td></tr></table></div> </div> <div class=tabbed-block> <div class=highlight><table class=highlighttable><tr><th colspan=2 class=filename><span class=filename>click_process.py</span></th></tr><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal> 1</span>
+<span class=normal> 2</span>
+<span class=normal> 3</span>
+<span class=normal> 4</span>
+<span class=normal> 5</span>
+<span class=normal> 6</span>
+<span class=normal> 7</span>
+<span class=normal> 8</span>
+<span class=normal> 9</span>
+<span class=normal>10</span>
+<span class=normal>11</span>
+<span class=normal>12</span>
+<span class=normal>13</span>
+<span class=normal>14</span>
+<span class=normal>15</span></pre></div></td><td class=code><div><pre><span></span><code><span class=ch>#!/usr/bin/env python</span>
+<span class=kn>import</span><span class=w> </span><span class=nn>click</span><span class=o>,</span><span class=w> </span><span class=nn>shtab.click</span>
+
+<span class=nd>@click</span><span class=o>.</span><span class=n>command</span><span class=p>(</span><span class=s1>'click-process'</span><span class=p>)</span>
+<span class=hll><span class=nd>@shtab</span><span class=o>.</span><span class=n>click</span><span class=o>.</span><span class=n>option</span><span class=p>()</span> <span class=c1># magic!</span>
+</span><span class=nd>@click</span><span class=o>.</span><span class=n>argument</span><span class=p>(</span><span class=s1>'out-dir'</span><span class=p>,</span> <span class=nb>type</span><span class=o>=</span><span class=n>click</span><span class=o>.</span><span class=n>Path</span><span class=p>(</span><span class=n>file_okay</span><span class=o>=</span><span class=kc>False</span><span class=p>),</span> <span class=n>required</span><span class=o>=</span><span class=kc>False</span><span class=p>)</span>
+<span class=nd>@click</span><span class=o>.</span><span class=n>option</span><span class=p>(</span><span class=s1>'--config'</span><span class=p>,</span> <span class=nb>type</span><span class=o>=</span><span class=n>click</span><span class=o>.</span><span class=n>File</span><span class=p>(),</span> <span class=n>help</span><span class=o>=</span><span class=s2>"Config file."</span><span class=p>)</span>
+<span class=nd>@click</span><span class=o>.</span><span class=n>option</span><span class=p>(</span><span class=s1>'-q'</span><span class=p>,</span> <span class=s1>'--quiet'</span><span class=p>,</span> <span class=n>is_flag</span><span class=o>=</span><span class=kc>True</span><span class=p>,</span> <span class=n>help</span><span class=o>=</span><span class=s2>"Suppress output."</span><span class=p>)</span>
+<span class=k>def</span><span class=w> </span><span class=nf>process</span><span class=p>(</span><span class=n>config</span><span class=p>,</span> <span class=n>out_dir</span><span class=p>,</span> <span class=n>quiet</span><span class=p>):</span>
+<span class=w>    </span><span class=sd>"""Click example CLI with shtab."""</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=n>quiet</span><span class=p>:</span>
+        <span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Reading from </span><span class=si>{</span><span class=n>config</span><span class=si>}</span><span class=s2> and writing to </span><span class=si>{</span><span class=n>out_dir</span><span class=si>}</span><span class=s2>"</span><span class=p>)</span>
+
+<span class=k>if</span> <span class=vm>__name__</span> <span class=o>==</span> <span class=s1>'__main__'</span><span class=p>:</span>
+    <span class=n>process</span><span class=p>()</span>
+</code></pre></div></td></tr></table></div> </div> <div class=tabbed-block> <div class=highlight><table class=highlighttable><tr><th colspan=2 class=filename><span class=filename>click_subcommand.py</span></th></tr><tr><td class=linenos><div class=linenodiv><pre><span></span><span class=normal> 1</span>
+<span class=normal> 2</span>
+<span class=normal> 3</span>
+<span class=normal> 4</span>
+<span class=normal> 5</span>
+<span class=normal> 6</span>
+<span class=normal> 7</span>
+<span class=normal> 8</span>
+<span class=normal> 9</span>
+<span class=normal>10</span>
+<span class=normal>11</span>
+<span class=normal>12</span>
+<span class=normal>13</span>
+<span class=normal>14</span>
+<span class=normal>15</span>
+<span class=normal>16</span>
+<span class=normal>17</span>
+<span class=normal>18</span>
+<span class=normal>19</span>
+<span class=normal>20</span></pre></div></td><td class=code><div><pre><span></span><code><span class=ch>#!/usr/bin/env python</span>
+<span class=kn>import</span><span class=w> </span><span class=nn>click</span><span class=o>,</span><span class=w> </span><span class=nn>shtab.click</span>
+
+<span class=nd>@click</span><span class=o>.</span><span class=n>group</span><span class=p>(</span><span class=s1>'click-subcommand'</span><span class=p>)</span>
+<span class=k>def</span><span class=w> </span><span class=nf>main</span><span class=p>():</span>
+<span class=w>    </span><span class=sd>"""Main (root) CLI group command."""</span>
+
+<span class=nd>@main</span><span class=o>.</span><span class=n>command</span><span class=p>()</span>
+<span class=nd>@click</span><span class=o>.</span><span class=n>argument</span><span class=p>(</span><span class=s1>'out-dir'</span><span class=p>,</span> <span class=nb>type</span><span class=o>=</span><span class=n>click</span><span class=o>.</span><span class=n>Path</span><span class=p>(</span><span class=n>file_okay</span><span class=o>=</span><span class=kc>False</span><span class=p>))</span>
+<span class=nd>@click</span><span class=o>.</span><span class=n>option</span><span class=p>(</span><span class=s1>'--config'</span><span class=p>,</span> <span class=nb>type</span><span class=o>=</span><span class=n>click</span><span class=o>.</span><span class=n>File</span><span class=p>(),</span> <span class=n>help</span><span class=o>=</span><span class=s2>"Config file."</span><span class=p>)</span>
+<span class=nd>@click</span><span class=o>.</span><span class=n>option</span><span class=p>(</span><span class=s1>'-q'</span><span class=p>,</span> <span class=s1>'--quiet'</span><span class=p>,</span> <span class=n>is_flag</span><span class=o>=</span><span class=kc>True</span><span class=p>,</span> <span class=n>help</span><span class=o>=</span><span class=s2>"Suppress output."</span><span class=p>)</span>
+<span class=k>def</span><span class=w> </span><span class=nf>process</span><span class=p>(</span><span class=n>config</span><span class=p>,</span> <span class=n>out_dir</span><span class=p>,</span> <span class=n>quiet</span><span class=p>):</span>
+<span class=w>    </span><span class=sd>"""Click example CLI with shtab."""</span>
+    <span class=k>if</span> <span class=ow>not</span> <span class=n>quiet</span><span class=p>:</span>
+        <span class=nb>print</span><span class=p>(</span><span class=sa>f</span><span class=s2>"Reading from </span><span class=si>{</span><span class=n>config</span><span class=si>}</span><span class=s2> and writing to </span><span class=si>{</span><span class=n>out_dir</span><span class=si>}</span><span class=s2>"</span><span class=p>)</span>
+
+<span class=hll><span class=n>shtab</span><span class=o>.</span><span class=n>click</span><span class=o>.</span><span class=n>add_command_to</span><span class=p>(</span><span class=n>main</span><span class=p>)</span> <span class=c1># magic!</span>
+</span>
+<span class=k>if</span> <span class=vm>__name__</span> <span class=o>==</span> <span class=s1>'__main__'</span><span class=p>:</span>
+    <span class=n>main</span><span class=p>()</span>
+</code></pre></div></td></tr></table></div> </div> </div> </div> </article> </div> <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script> <script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script> </div> </main> <footer class=md-footer> <div class="md-footer-meta md-typeset"> <div class="md-footer-meta__inner md-grid"> <div class=md-copyright> <div class=md-copyright__highlight> &copy; Casper da Costa-Luis <a href=https://github.com/casperdcl>@casperdcl</a> 2021-2026 </div> </div> </div> </div> </footer> <div class="adaptive flat" data-ea-publisher=tqdmgithubio data-ea-type=text data-ea-style=fixedfooter id=foot></div> <script>
+    function docReady(fn) {
+      if (document.readyState === "complete" || document.readyState === "interactive") {
+        setTimeout(fn, 1);  // call on next available tick
+      } else {
+        document.addEventListener("DOMContentLoaded", fn);
+      }
+    }
+
+    docReady(function() {
+      ethicalads.wait.then((placements) => {
+        if (!placements.length) {
+          console.debug('EthicalAds disabled');
+          div = document.querySelector('[data-ea-publisher]#manual')
+          div.innerHTML = '<ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-5970675603981498" data-ad-slot="6206662262" data-ad-format="auto" data-full-width-responsive="true"></ins>'
+          (adsbygoogle = window.adsbygoogle || []).push({});
+          console.debug('GoogleAds loaded');
+        } else {
+          console.debug('EthicalAds loaded');
+        }
+      });
+    });
+    </script> </div> <div class=md-dialog data-md-component=dialog> <div class="md-dialog__inner md-typeset"></div> </div> <script id=__config type=application/json>{"annotate": null, "base": "..", "features": ["content.tabs.link"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script> <script src=../assets/javascripts/bundle.d7400e89.min.js></script> </body> </html>
