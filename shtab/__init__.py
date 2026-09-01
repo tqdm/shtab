@@ -1119,7 +1119,9 @@ def _powershell_escape(string: str) -> str:
     about/about_quoting_rules
     """
     s = str(string)
-    for ch in "'\u2018\u2019":
+    # all five `single-quote-character`s close a verbatim string literal
+    # (PowerShell Language Specification 3.0 section 2.3.5.1.1)
+    for ch in "'\u2018\u2019\u201a\u201b":
         s = s.replace(ch, ch * 2)
     return f"'{s}'"
 

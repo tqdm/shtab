@@ -796,6 +796,18 @@ def test_get_completer(shell):
     shtab.get_completer(shell)
 
 
+@pytest.mark.parametrize("quote", ["'", "\u2018", "\u2019", "\u201a", "\u201b"])
+def test_powershell_escape_quotes(quote):
+    """
+    Every PowerShell `single-quote-character` must be doubled.
+
+    All five of U+0027, U+2018, U+2019, U+201A and U+201B close a verbatim string
+    literal, and a doubled one is a literal occurrence of that same character
+    (PowerShell Language Specification 3.0 section 2.3.5.1.1).
+    """
+    assert shtab._powershell_escape(f"a{quote}b") == f"'a{quote}{quote}b'"
+
+
 def test_get_completer_invalid():
     try:
         shtab.get_completer("invalid")
