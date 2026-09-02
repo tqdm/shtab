@@ -21,7 +21,8 @@ try:
 except PackageNotFoundError:
     __version__ = "UNKNOWN"
 __all__ = [
-    "complete", "add_argument_to", "glob", "cmd", "SUPPORTED_SHELLS", "FILE", "DIRECTORY", "DIR"]
+    "complete", "add_argument_to", "set_complete", "glob", "cmd", "SUPPORTED_SHELLS", "FILE",
+    "DIRECTORY", "DIR"]
 log = logging.getLogger(__name__)
 
 ShellType = str
@@ -134,6 +135,18 @@ def cmd(command: str) -> CompleteType:
                   Where-Object {{ $_ -like "$WordToComplete*" }}
               }}"""),
         }} # yapf: disable
+
+
+def set_complete(action: Action, complete: CompleteType) -> None:
+    """
+    complete:
+      e.g. `shtab.FILE`, `shtab.DIRECTORY`, `shtab.glob(...)`, `shtab.cmd(...)`
+
+    Equivalent to `action.complete = ...`, but not rejected by type checkers.
+
+    Example: `set_complete(parser.add_argument("--file"), shtab.FILE)`
+    """
+    action.complete = complete # type: ignore[attr-defined]
 
 
 class _ShtabPrintCompletionAction(Action):
