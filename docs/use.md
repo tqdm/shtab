@@ -243,6 +243,15 @@ Add direct support to scripts for a little more configurability:
         main()
     ```
 
+    !!! tip
+        `complete` is not declared on `argparse.Action`, so type checkers reject the
+        assignments above (`mypy`: `"Action" has no attribute "complete"`). Use
+        `shtab.set_complete` instead:
+
+        ```py
+        shtab.set_complete(parser.add_argument("file", nargs="?"), shtab.FILE)
+        ```
+
 === "docopt"
 
     Simply use [argopt](https://pypi.org/project/argopt) to create a parser
