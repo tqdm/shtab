@@ -537,7 +537,7 @@ ${root_prefix}() {
   return 0
 }
 
-complete -F ${root_prefix} ${prog}""").safe_substitute(
+complete -o bashdefault -F ${root_prefix} ${prog}""").safe_substitute(
         subparsers="\n".join(subparsers),
         option_strings="\n".join(option_strings),
         compgens="\n".join(compgens),
