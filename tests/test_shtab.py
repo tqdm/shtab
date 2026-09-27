@@ -852,7 +852,7 @@ def test_bash_option_completion_after_positional_path():
     shell.test('"${COMPREPLY[*]}" = "--wdir"')
 
 
-@pytest.mark.parametrize("previous", ["", "--pid ", "-- ", "> "])
+@pytest.mark.parametrize("previous", ["", "--pid ", "--file ", "--directory ", "-- ", "> "])
 @pytest.mark.parametrize("word,expected", [
     ("$SHTAB_TEST_VAR", "$SHTAB_TEST_VARIABLE "),
     ("${SHTAB_TEST_VAR", "${SHTAB_TEST_VARIABLE} "),
@@ -863,6 +863,8 @@ def test_bash_variable_completion(change_dir, monkeypatch, previous, word, expec
     monkeypatch.setenv("HISTFILE", os.devnull)
     parser = ArgumentParser(prog="test")
     parser.add_argument("--pid", type=int)
+    parser.add_argument("--file").complete = shtab.FILE
+    parser.add_argument("--directory").complete = shtab.DIRECTORY
     completion = shtab.complete(parser, shell="bash", preamble="export SHTAB_TEST_VARIABLE=123")
     lines = bash_candidates(completion, [f"test {previous}{word}"], change_dir)
     assert lines == [f"test {previous}{expected}"]
