@@ -86,7 +86,7 @@ def test_main_self_completion(shell, capsys):
     captured = capsys.readouterr()
     assert not captured.err
     expected = {
-        'bash': "complete -F _shtab_shtab shtab", 'zsh': "_shtab_shtab_commands()",
+        'bash': "complete -o bashdefault -F _shtab_shtab shtab", 'zsh': "_shtab_shtab_commands()",
         'tcsh': "complete shtab", 'fish': "complete -c shtab",
         'powershell': "Register-ArgumentCompleter -Native -CommandName shtab"}
     assert expected[shell] in captured.out
@@ -100,7 +100,7 @@ def test_main_output_path(shell, capsys, change_dir, output):
     captured = capsys.readouterr()
     assert not captured.err
     expected = {
-        'bash': "complete -F _shtab_shtab shtab", 'zsh': "_shtab_shtab_commands()",
+        'bash': "complete -o bashdefault -F _shtab_shtab shtab", 'zsh': "_shtab_shtab_commands()",
         'tcsh': "complete shtab", 'fish': "complete -c shtab",
         'powershell': "Register-ArgumentCompleter -Native -CommandName shtab"}
     if output in ("-", "stdout"):
@@ -116,7 +116,7 @@ def test_prog_override(shell, capsys):
     captured = capsys.readouterr()
     assert not captured.err
     if shell == 'bash':
-        assert "complete -F _shtab_shtab foo" in captured.out
+        assert "complete -o bashdefault -F _shtab_shtab foo" in captured.out
     else:
         pytest.skip("WiP")
 
@@ -129,7 +129,7 @@ def test_prog_scripts(shell, capsys):
     assert not captured.err
     script_py = [i.strip() for i in captured.out.splitlines() if "script.py" in i and i[0] != '#']
     if shell == 'bash':
-        assert script_py == ["complete -F _shtab_shtab script.py"]
+        assert script_py == ["complete -o bashdefault -F _shtab_shtab script.py"]
     elif shell == 'zsh':
         assert captured.out.startswith("#compdef script.py")
         assert script_py == [
@@ -557,7 +557,7 @@ def test_bash_dir_collision(change_dir, test_parser):
     (change_dir / "create").mkdir()
     (change_dir / "subdir").mkdir()
     completion = complete(test_parser, 'bash')
-    assert "complete -F _shtab_myprog myprog" in completion, \
+    assert "complete -o bashdefault -F _shtab_myprog myprog" in completion, \
         "`-o filenames` must not apply readline filename post-processing globally"
     lines = bash_candidates(completion, ["myprog cre", "myprog create alpha sub"], change_dir)
     assert lines == [
@@ -850,6 +850,34 @@ def test_bash_option_completion_after_positional_path():
     completion = shtab.complete(parser, shell="bash")
     shell = Bash(completion + "\nCOMP_WORDS=(test . --w); COMP_CWORD=2; _shtab_test;")
     shell.test('"${COMPREPLY[*]}" = "--wdir"')
+
+
+@pytest.mark.parametrize("previous", ["", "--pid ", "--file ", "--directory ", "-- ", "> "])
+@pytest.mark.parametrize("word,expected", [
+    ("$SHTAB_TEST_VAR", "$SHTAB_TEST_VARIABLE "),
+    ("${SHTAB_TEST_VAR", "${SHTAB_TEST_VARIABLE} "),
+    ('"$SHTAB_TEST_VAR', '"$SHTAB_TEST_VARIABLE" '),
+    ('"${SHTAB_TEST_VAR', '"${SHTAB_TEST_VARIABLE}" '),])
+def test_bash_variable_completion(change_dir, monkeypatch, previous, word, expected):
+    monkeypatch.setenv("INPUTRC", os.devnull)
+    monkeypatch.setenv("HISTFILE", os.devnull)
+    parser = ArgumentParser(prog="test")
+    parser.add_argument("--pid", type=int)
+    parser.add_argument("--file").complete = shtab.FILE
+    parser.add_argument("--directory").complete = shtab.DIRECTORY
+    completion = shtab.complete(parser, shell="bash", preamble="export SHTAB_TEST_VARIABLE=123")
+    lines = bash_candidates(completion, [f"test {previous}{word}"], change_dir)
+    assert lines == [f"test {previous}{expected}"]
+
+
+def test_bash_fallback_does_not_complete_filenames(change_dir, monkeypatch):
+    monkeypatch.setenv("INPUTRC", os.devnull)
+    monkeypatch.setenv("HISTFILE", os.devnull)
+    parser = ArgumentParser(prog="test")
+    parser.add_argument("--pid", type=int)
+    (change_dir / "test_file.txt").touch()
+    completion = shtab.complete(parser, shell="bash")
+    assert bash_candidates(completion, ["test --pid test_f"], change_dir) == ["test --pid test_f"]
 
 
 @fix_shell
