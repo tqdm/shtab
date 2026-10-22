@@ -200,6 +200,17 @@ def test_positional_choices(shell):
         pytest.skip("WiP")
 
 
+def test_set_complete():
+    attribute = ArgumentParser(prog="test")
+    attribute.add_argument("--file").complete = shtab.FILE
+
+    helper = ArgumentParser(prog="test")
+    shtab.set_complete(helper.add_argument("--file"), shtab.FILE)
+
+    assert complete(helper, "bash") == complete(attribute, "bash"), \
+        "set_complete should be equivalent to assigning .complete"
+
+
 def test_zsh_optional_positionals_keep_parser_order():
     parser = ArgumentParser(prog="keyring", add_help=False)
     parser.add_argument("operation", choices=["get", "set", "del"], nargs="?")
