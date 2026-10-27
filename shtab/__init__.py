@@ -284,7 +284,7 @@ def get_bash_commands(root_parser, root_prefix, choice_functions=None):
                 compgens.append(f"{prefix}_pos_{i}_COMPGEN={quote(comp_pattern)}")
             elif positional.choices:
                 # choices (including subparsers & shtab `.complete` functions)
-                log.debug(f"choices:{prefix}:{sorted(positional.choices)}")
+                log.debug(f"choices:{prefix}:{sorted(positional.choices, key=str)}")
                 if is_subparser(positional):
                     public_cmds = get_public_subcommands(positional)
                 this_positional_choices = []
@@ -1196,7 +1196,7 @@ def get_powershell_commands(root_parser, root_prefix, choice_functions=None):
                 if comp_pattern:
                     compgens[action_key] = comp_pattern
             elif positional.choices:
-                log.debug(f"choices:{prefix}:{sorted(positional.choices)}")
+                log.debug(f"choices:{prefix}:{sorted(positional.choices, key=str)}")
                 this_positional_choices = []
                 for choice in positional.choices:
                     if isinstance(positional.choices, dict):
