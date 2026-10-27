@@ -1,8 +1,9 @@
 import hashlib
 import logging
+import pathlib
 import re
 from argparse import (ONE_OR_MORE, REMAINDER, SUPPRESS, ZERO_OR_MORE, Action, ArgumentParser,
-                      _ActionsContainer, _AppendAction, _AppendConstAction, _CountAction,
+                      FileType, _ActionsContainer, _AppendAction, _AppendConstAction, _CountAction,
                       _HelpAction, _StoreConstAction, _VersionAction)
 from collections import defaultdict
 from contextlib import contextmanager
@@ -245,6 +246,17 @@ def is_subparser(positional):
         isinstance(v, ArgumentParser) for v in positional.choices.values())
 
 
+def is_path_type(action):
+    """Whether an action's `type` takes a filesystem path (a `pathlib.Path` or `FileType`).
+
+    Such arguments complete files and directories without an explicit `.complete`.
+    """
+    arg_type = getattr(action, "type", None)
+    if isinstance(arg_type, FileType):
+        return True
+    return isinstance(arg_type, type) and issubclass(arg_type, pathlib.Path)
+
+
 def get_bash_commands(root_parser, root_prefix, choice_functions=None):
     """
     Recursive subcommand parser traversal, returning lists of information on
@@ -310,6 +322,8 @@ def get_bash_commands(root_parser, root_prefix, choice_functions=None):
 
                 if this_positional_choices:
                     choices.append(f"{prefix}_pos_{i}_choices=({join(this_positional_choices)})")
+            elif is_path_type(positional):
+                compgens.append(f"{prefix}_pos_{i}_COMPGEN={quote(choice_type2fn['file'])}")
 
             # skip default `nargs` values
             if positional.nargs not in (None, "1", "?"):
@@ -352,6 +366,9 @@ def get_bash_commands(root_parser, root_prefix, choice_functions=None):
                     if this_optional_choices:
                         choices.append(f"{prefix}_{wordify(option_string)}_choices="
                                        f"({join(this_optional_choices)})")
+                elif is_path_type(optional):
+                    compgens.append(f"{prefix}_{wordify(option_string)}_COMPGEN="
+                                    f"{quote(choice_type2fn['file'])}")
 
                 # Check for nargs.
                 if optional.nargs is not None and optional.nargs != 1:
@@ -612,6 +629,8 @@ def complete_zsh(parser, root_prefix=None, preamble="", choice_functions=None):
             if isinstance(first, Choice):
                 return choice_type2fn[first.type]
             return "({})".format(" ".join(map(str, arg.choices)))
+        if is_path_type(arg):
+            return choice_type2fn["file"]
 
     def format_optional(opt, get_help):
         return (('{nargs}{options}"[{help}]"' if (isinstance(opt, FLAG_OPTION) or opt.nargs == 0)
@@ -830,6 +849,10 @@ def complete_tcsh(parser, root_prefix=None, preamble="", choice_functions=None):
             else:
                 choice_strs = ' '.join(map(str, arg.choices))
             yield f"'{arg_type}/{arg_sel}/({choice_strs})/'"
+        elif is_path_type(arg):
+            yield f"'{arg_type}/{arg_sel}/{choice_type2fn['file']}/'"
+        # complete_tcsh's multi-requirement positional branch below cannot express `f`
+        # (it only emits backtick commands), so an inferred path there stays uncompleted.
 
     def recurse_parser(cparser, positional_idx, requirements=None):
         log_prefix = "| " * positional_idx
@@ -961,6 +984,8 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
             return complete2pattern(arg.complete, 'fish', choice_type2fn, preambles)
         if arg.choices:
             return join(map(str, arg.choices))
+        if is_path_type(arg):
+            return choice_type2fn["file"]
 
     def pos_condition(index, width, open_ended):
         """Condition suffix restricting a completion to the given positional slot(s)."""
@@ -1219,6 +1244,8 @@ def get_powershell_commands(root_parser, root_prefix, choice_functions=None):
                         this_positional_choices.append(str(choice))
                 if this_positional_choices:
                     choices[action_key] = this_positional_choices
+            elif is_path_type(positional):
+                compgens[action_key] = choice_type2fn["file"]
             if positional.help not in (None, SUPPRESS):
                 help_text[action_key] = get_help(positional)
             if positional.nargs not in (None, "1", "?"):
@@ -1241,6 +1268,9 @@ def get_powershell_commands(root_parser, root_prefix, choice_functions=None):
                         compgens[opt_key] = comp_pattern
                 if optional.choices:
                     choices[opt_key] = list(map(str, optional.choices))
+                if not hasattr(optional, 'complete') and not optional.choices \
+                        and is_path_type(optional):
+                    compgens[opt_key] = choice_type2fn["file"]
                 if optional.help not in (None, SUPPRESS):
                     help_text[opt_key] = get_help(optional)
                 if optional.nargs is not None and optional.nargs != 1:

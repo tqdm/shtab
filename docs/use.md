@@ -243,6 +243,11 @@ Add direct support to scripts for a little more configurability:
         main()
     ```
 
+    Arguments typed as `pathlib.Path` or `argparse.FileType` complete files and
+    directories without an explicit `.complete`. Set `.complete = {}` on one of them
+    to opt out; wrappers around those types (a `lambda`, `functools.partial`,
+    `os.PathLike`) still need an explicit `.complete`.
+
 === "docopt"
 
     Simply use [argopt](https://pypi.org/project/argopt) to create a parser

@@ -100,7 +100,9 @@ follow the OS-specific instructions below.
         - or override it using `shtab MY_PROG.get_main_parser --prog=MY-PROG`
     - if executing a script file `./MY_PROG.py` (with a [shebang](<https://en.wikipedia.org/wiki/Shebang_(Unix)>) `#!/usr/bin/env python`) directly, then use `prog="MY_PROG.py"`
 - Any suppressed argument (`help=argparse.SUPPRESS`, click `hidden=True`/`deprecated=True`) is skipped.
-- Default completion (when no choices are specified) is disabled. Enable it explicitly via e.g. `parser.add_argument('positional').complete = shtab.FILE`.
+- Default completion (when no choices are specified) is disabled, except for arguments typed
+  `pathlib.Path` or `argparse.FileType`, which complete files and directories. Enable it elsewhere
+  explicitly via e.g. `parser.add_argument('positional').complete = shtab.FILE`.
 - Some shells (e.g. `zsh`, `fish`) print information during tab completion:
     - subparser `description` takes precedence over `help`
     - argument `metavar` takes precedence over `dest`

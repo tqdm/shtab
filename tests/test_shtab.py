@@ -1,13 +1,15 @@
 """Tests for `shtab`."""
 import logging
 import os
+import pathlib
 import re
 import select
 import shutil
 import signal
 import subprocess
 import time
-from argparse import SUPPRESS, Action, ArgumentParser
+import warnings
+from argparse import SUPPRESS, Action, ArgumentParser, FileType
 
 import pytest
 
@@ -147,7 +149,8 @@ def test_prog_scripts(shell, capsys):
             f"{start} -s h -l help -d 'show this help message and exit'",
             f"{start} -l version -d 'show program'\"'\"'s version number and exit'",
             f'{start} -s s -l shell -xka "bash zsh tcsh fish powershell" -d shell',
-            f"{start} -s o -l output -x -d 'output file (- for stdout)'",
+            f'{start} -s o -l output -xka "(__fish_complete_path (commandline -ct))"'
+            " -d 'output file (- for stdout)'",
             f"{start} -l prefix -x -d 'prepended to generated functions to avoid clashes'",
             f"{start} -l preamble -x -d 'prepended to generated script'",
             f"{start} -l prog -x -d 'custom program name (overrides `parser.prog`)'",
@@ -530,6 +533,66 @@ def test_file_completion(shell, change_dir, test_parser):
         assert len(candidates) == 1
     else:
         raise NotImplementedError(completion)
+
+
+@fix_shell
+def test_path_type_completion(shell, change_dir):
+    """`type=Path`/`type=FileType` complete paths without an explicit `.complete`."""
+    (change_dir / "test_file.txt").touch()
+    # `FileType` is deprecated on 3.14 and the suite turns its warning into an error.
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", PendingDeprecationWarning)
+        file_type = FileType("r")
+    for arg_type in (pathlib.Path, file_type):
+        parser = ArgumentParser(prog="myprog")
+        parser.add_argument("--config", type=arg_type, help="config file")
+        parser.add_argument("path", type=arg_type, help="path to read")
+        completion = complete(parser, shell)
+        if shell == 'bash':
+            bash = Bash(completion)
+            bash.test('"$($_shtab_myprog_pos_0_COMPGEN test_)" = test_file.txt')
+            bash.test('"$($_shtab_myprog___config_COMPGEN test_)" = test_file.txt')
+        elif shell == 'zsh':
+            assert '"--config[config file]:config:_files"' in completion
+            assert '":path to read:_files"' in completion
+        elif shell == 'tcsh':
+            assert "'n/--config/f/'" in completion
+            assert "'p/1/f/'" in completion
+        elif shell == 'fish':
+            assert fish_candidates(completion, "myprog --config test_") == ["test_file.txt"]
+            assert fish_candidates(completion, "myprog test_") == ["test_file.txt"]
+        elif shell == 'powershell':
+            assert powershell_candidates(completion, "myprog --config test_") == ["test_file.txt"]
+            assert powershell_candidates(completion, "myprog test_") == ["test_file.txt"]
+        else:
+            raise NotImplementedError(shell)
+
+
+def test_path_type_keeps_explicit_completion_first():
+    """`.complete` and `choices` still win over the completion inferred from `type`."""
+    parser = ArgumentParser(prog="myprog")
+    parser.add_argument("--explicit", type=pathlib.Path).complete = shtab.glob("*.toml")
+    parser.add_argument("--choices", type=pathlib.Path, choices=["a", "b"])
+    parser.add_argument("--plain", type=pathlib.Path)
+    parser.add_argument("--text", type=str)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", PendingDeprecationWarning)
+        parser.add_argument("--file", type=FileType("w"))
+    completion = complete(parser, "bash")
+    assert "_shtab_myprog___explicit_COMPGEN=_shtab_glob" in completion
+    assert "_shtab_myprog___choices_choices=(a b)" in completion
+    assert "_shtab_myprog___choices_COMPGEN" not in completion
+    assert "_shtab_myprog___plain_COMPGEN=_shtab_compgen_files" in completion
+    assert "_shtab_myprog___text_COMPGEN" not in completion
+    assert "_shtab_myprog___file_COMPGEN=_shtab_compgen_files" in completion
+
+
+def test_path_type_completion_powershell_script():
+    """PowerShell inference, checked on the script so it runs without `pwsh` installed."""
+    parser = ArgumentParser(prog="myprog")
+    parser.add_argument("--config", type=pathlib.Path)
+    completion = complete(parser, "powershell")
+    assert "'_shtab_myprog___config' = '_shtab_powershell_compgen_files'" in completion
 
 
 def bash_candidates(completion, cmdlines, cwd):
