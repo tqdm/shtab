@@ -8,6 +8,7 @@ import signal
 import subprocess
 import time
 from argparse import SUPPRESS, Action, ArgumentParser
+from enum import Enum
 
 import pytest
 
@@ -300,6 +301,25 @@ def test_non_sequence_choices(shell, tmp_path):
         assert fish_candidates(completion, "myprog --mapping t") == ["two"]
     else:
         pytest.skip("WiP")
+
+
+@fix_shell
+def test_unorderable_choices(shell):
+    class Color(Enum):
+        RED = 1
+        GREEN = 2
+
+        def __str__(self):
+            return self.name
+
+    parser = ArgumentParser(prog="myprog", add_help=False)
+    parser.add_argument("color", type=Color.__getitem__, choices=list(Color))
+    completion = complete(parser, shell)
+    if shell == 'bash':
+        shell = Bash(completion)
+        shell.compgen('-W "${_shtab_myprog_pos_0_choices[*]}"', "R", "RED")
+    else:
+        assert "GREEN" in completion
 
 
 def test_zsh_remainder_custom_complete_has_optional_message_colon():
