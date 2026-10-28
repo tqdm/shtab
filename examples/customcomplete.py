@@ -12,7 +12,7 @@ import shtab  # for completion magic
 # WARNING: shtab.cmd is (re)run by your shell on each tab press, so could be slow
 COMPLETE_TOKEN = shtab.cmd("head -c5 /dev/random | base32")
 # override powershell function to a Windows-compatible approximate equivalent
-COMPLETE_TOKEN['preamble']['powershell'] = (   # type: ignore[index]
+COMPLETE_TOKEN['preamble']['powershell'] = (  # type: ignore[index]
     f"function {COMPLETE_TOKEN['powershell']}"
     " { Get-Random -Count 1 -InputObject (10000..99999) }")
 
@@ -27,7 +27,7 @@ def process(args):
 main_parser = argparse.ArgumentParser(prog="customcomplete")
 subparsers = main_parser.add_subparsers(dest="subcommand", required=True)
 parser = subparsers.add_parser("completion", help="print tab completion")
-shtab.add_argument_to(parser, "shell", parent=main_parser) # magic!
+shtab.add_argument_to(parser, "shell", parent=main_parser)  # magic!
 
 # mypy: disable-error-code="attr-defined"
 parser = subparsers.add_parser("process", help="parse files")

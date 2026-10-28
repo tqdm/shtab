@@ -86,7 +86,7 @@ extend_ignore = ["E261", "N400", "P101"]
 exclude = [".git", "__pycache__", "build", "dist", ".eggs"]
 
 [tool.yapf]
-spaces_before_comment = [15, 20]
+spaces_before_comment = 2
 arithmetic_precedence_indication = true
 allow_split_before_dict_value = false
 coalesce_brackets = true

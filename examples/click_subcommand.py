@@ -24,7 +24,7 @@ def process(config, out_dir, quiet):
         print(f"Reading from {config} and writing to {out_dir}")
 
 
-shtab.click.add_command_to(main) # magic!
+shtab.click.add_command_to(main)  # magic!
 
 if __name__ == '__main__':
     main()

@@ -218,11 +218,11 @@ class Required:
 def complete2pattern(opt_complete: CompleteType, shell: str, choice_type2fn: dict[str, str],
                      preambles: list[str]) -> str:
     if isinstance(opt_complete, dict):
-        if preamble := opt_complete.get("preamble", {}).get(shell, ""): # type: ignore[union-attr]
+        if preamble := opt_complete.get("preamble", {}).get(shell, ""):  # type: ignore[union-attr]
             preambles.append(preamble)
 
     if isinstance(opt_complete, dict):
-        return opt_complete.get(shell, "") # type: ignore[return-value]
+        return opt_complete.get(shell, "")  # type: ignore[return-value]
     return choice_type2fn[opt_complete]
 
 
@@ -567,7 +567,7 @@ def get_formatter(parser):
     formatter = parser._get_formatter()
     backup_width = formatter._width
     try:
-        formatter._width = 999 # large number to effectively disable wrapping
+        formatter._width = 999  # large number to effectively disable wrapping
 
         def inner(str_or_parser):
             return head(
@@ -948,8 +948,8 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
     prog = parser.prog
     prefix = wordify(f"_shtab_{root_prefix or prog}")
     completions = []
-    commands = []           # all (sub)command paths, e.g. ["sub", "sub subsub"]
-    opts_with_value = set() # option strings which consume a following value token
+    commands = []  # all (sub)command paths, e.g. ["sub", "sub subsub"]
+    opts_with_value = set()  # option strings which consume a following value token
     preambles = [preamble] if preamble else []
 
     choice_type2fn = {k: v["fish"] for k, v in CHOICE_FUNCTIONS.items()}
@@ -1005,8 +1005,8 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
                     output.append(f'-d {quote(desc)}')
             completions.append(' '.join(output))
 
-        index = 0          # the next positional slot (number of preceding positional arguments)
-        open_ended = False # an earlier positional consumes any number of tokens
+        index = 0  # the next positional slot (number of preceding positional arguments)
+        open_ended = False  # an earlier positional consumes any number of tokens
 
         for positional in cparser._get_positional_actions():
             if positional.help == SUPPRESS:
@@ -1015,7 +1015,7 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
             if is_subparser(positional):
                 public_cmds = get_public_subcommands(positional)
                 pos_test = pos_condition(index, 1, open_ended)
-                for subcmd, subparser in positional.choices.items(): # type: ignore[union-attr]
+                for subcmd, subparser in positional.choices.items():  # type: ignore[union-attr]
                     if subcmd not in public_cmds:
                         continue
                     log.debug("%s| | SubParser: %s", log_prefix, subcmd)
@@ -1522,9 +1522,10 @@ def completion_action(parent: Opt[ArgumentParser] = None, preamble: Union[str, d
 def add_argument_to(
     parser: _ActionsContainerT,
     option_string: Union[str, list[str]] = "--print-completion",
-    help: str = "print shell completion script",                    # pylint: disable=W0622
+    help: str = "print shell completion script",  # pylint: disable=W0622
     parent: Opt[ArgumentParser] = None,
     preamble: Union[str, dict[str, str]] = "",
+    metavar: Opt[str] = None,
 ) -> _ActionsContainerT:
     """
     option_string:
@@ -1534,14 +1535,16 @@ def add_argument_to(
       required in subcommand mode
     preamble:
       see `complete` for details
+    metavar:
+      replaces shell choices list in help output
     """
     if isinstance(option_string, str):
         option_string = [option_string]
     kwargs = {
-        "choices": SUPPORTED_SHELLS, "default": None, "help": help,
+        "choices": SUPPORTED_SHELLS, "default": None, "help": help, "metavar": metavar,
         "action": completion_action(parent, preamble)}
 
-    if option_string[0][0] != "-": # subparser mode
+    if option_string[0][0] != "-":  # subparser mode
         kwargs.update(default=SUPPORTED_SHELLS[0], nargs="?")
         if parent is None:
             raise ValueError("subcommand mode: parent required")

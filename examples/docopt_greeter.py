@@ -17,7 +17,7 @@ import argopt
 import shtab
 
 parser = argopt.argopt(__doc__)
-shtab.add_argument_to(parser, ["-s", "--print-completion"]) # magic!
+shtab.add_argument_to(parser, ["-s", "--print-completion"])  # magic!
 
 
 def main(args=None):
