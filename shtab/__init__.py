@@ -1375,6 +1375,11 @@ Register-ArgumentCompleter -Native -CommandName ${prog} -ScriptBlock {
         $currentActionNargs = Get-ActionNargs $currentActionKey
         $currentActionArgsConsumed = 0
         $currentActionIsPositional = $false
+        if ($currentActionNargs -eq '0') {
+          $currentActionKey = "${prefix}_pos_${completedPositionals}"
+          $currentActionNargs = Get-ActionNargs $currentActionKey
+          $currentActionIsPositional = $true
+        }
         continue
       }
       # Consume argument for current action
