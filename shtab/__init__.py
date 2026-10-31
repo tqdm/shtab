@@ -69,7 +69,7 @@ def glob(*patterns: str) -> CompleteType:
     """
     return {
         "bash": f"_shtab_glob_compgen_{sha(patterns)}",
-        "zsh": f"_files -g '({'|'.join(patterns)})'",
+        "zsh": f"_files -g '{' '.join(patterns)}'",
         "tcsh": f"f:{{{','.join(patterns)}}}",
         "fish": f"(_shtab_glob_compgen_{sha(patterns)})",
         "powershell": f"_shtab_glob_compgen_{sha(patterns)}",

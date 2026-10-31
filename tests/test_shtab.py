@@ -383,6 +383,29 @@ complete -C 'pathcomplete --config '
     assert "notes.txt" not in output
 
 
+def test_zsh_glob_spec(tmp_path):
+    """glob patterns must be passed to `_files -g` as filename patterns, not a qualifier."""
+    parser = ArgumentParser(prog="test", add_help=False)
+    parser.add_argument("--config").complete = shtab.glob("*.toml", "*.yml")
+    completion = complete(parser, "zsh")
+    specs = zsh_specs(completion, "_shtab_test_options", tmp_path)
+    assert specs == ["--config[config]:config:_files -g '*.toml *.yml'"]
+
+
+@pytest.mark.parametrize("patterns, expected", [
+    (("*.toml",), ["a.toml"]),
+    (("*.toml", "*.yml", "*.json"), ["a.toml", "b.yml", "c.json"]),])
+def test_zsh_glob_completion(change_dir, patterns, expected):
+    """Glob completion in zsh must actually complete matching files (single pattern too)."""
+    for name in ("a.toml", "b.yml", "c.json", "d.txt"):
+        (change_dir / name).touch()
+    parser = ArgumentParser(prog="globprog", add_help=False)
+    parser.add_argument("--config").complete = shtab.glob(*patterns)
+    completion = complete(parser, "zsh")
+    assert sorted(zsh_candidates(completion, "globprog --config ", change_dir,
+                                 "globprog")) == sorted(expected)
+
+
 def powershell_candidates(completion, cmdline):
     """Source `completion` in PowerShell, then return the completion candidates for `cmdline`."""
     if not shutil.which('pwsh'):
@@ -461,6 +484,70 @@ def tcsh_candidates(completion, cmdlines, cwd):
         os.kill(pid, signal.SIGKILL)
         os.waitpid(pid, 0)
     return candidates
+
+
+def zsh_candidates(completion, cmdline, cwd, prog):
+    """
+    Drive an interactive zsh and return the candidates it offers for `cmdline`.
+
+    `completion` is sourced into a fresh zsh, whose `compadd` is wrapped to record
+    the candidate strings the completion functions hand to it.
+    """
+    pty = pytest.importorskip('pty')
+    if not shutil.which('zsh'):
+        pytest.skip("zsh not available")
+    script = cwd / "completion.zsh"
+    script.write_text(completion)
+    candidate_file = cwd / "zsh_candidates.txt"
+    setup = cwd / "zsh_setup.zsh"
+    setup.write_text("setopt zle\n"
+                     "bindkey -e\n"
+                     "autoload -Uz compinit\n"
+                     "compinit -u -d {cwd}/.zcompdump\n"
+                     "compadd() {{\n"
+                     "  local -a _cap\n"
+                     '  builtin compadd -O _cap "$@"\n'
+                     "  local _c\n"
+                     '  for _c in "$_cap[@]"; do print -r -- "$_c" >> {candidate_file}; done\n'
+                     '  builtin compadd "$@"\n'
+                     "}}\n"
+                     'eval "$(<{script})"\n'
+                     "{prog}() {{ :; }}\n".format(cwd=cwd, candidate_file=candidate_file,
+                                                  script=script, prog=prog))
+
+    prompt = "|READY|"
+    pid, fd = pty.fork()
+    if pid == 0:   # child
+        os.chdir(cwd)
+        os.environ['TERM'] = 'dumb'
+        os.environ['COLUMNS'] = '999'
+        os.execvp('zsh', ['zsh', '-f', '-i'])
+
+    def clean_chunk(chunk):
+        return re.sub(r"\x1b\[[0-9;]*[A-Za-z]|[\a\r\b]", "", chunk.decode('utf-8', 'replace'))
+
+    try:
+        output = ""
+        os.write(fd, f'PROMPT="{prompt}"\n'.encode())
+        os.write(fd, f'. "{setup}"\n'.encode())
+        deadline = time.time() + 10
+        while prompt not in output and time.time() < deadline:
+            if select.select([fd], [], [], 0.1)[0]:
+                try:
+                    output += clean_chunk(os.read(fd, 1 << 16))
+                except OSError:
+                    break
+        # reset candidates, trigger completion on the argument, then clear the line
+        candidate_file.write_text("")
+        os.write(fd, (cmdline + "\t").encode())
+        time.sleep(0.6)
+        os.write(fd, b"\x15\n")
+        time.sleep(0.2)
+    finally:
+        os.close(fd)
+        os.kill(pid, signal.SIGKILL)
+        os.waitpid(pid, 0)
+    return candidate_file.read_text().splitlines() if candidate_file.exists() else []
 
 
 @pytest.fixture(scope="module")
