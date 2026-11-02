@@ -44,7 +44,7 @@ repos:
   - id: bandit
     args: [-c, pyproject.toml]
 - repo: https://github.com/PyCQA/flake8
-  rev: 7.4.1
+  rev: 7.5.0
   hooks:
   - id: flake8
     args: [-j8]
@@ -60,7 +60,7 @@ repos:
   - id: pyupgrade
     args: [--py39-plus]
 - repo: https://github.com/pre-commit/mirrors-mypy
-  rev: v2.4.0
+  rev: v2.4.1
   hooks:
   - id: mypy
     additional_dependencies: [types-setuptools]
@@ -71,7 +71,7 @@ repos:
     args: [-i]
     additional_dependencies: [toml]
 - repo: https://github.com/PyCQA/isort
-  rev: 10.0.0b1
+  rev: 10.0.0b2
   hooks:
   - id: isort
 ci:
