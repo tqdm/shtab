@@ -1525,6 +1525,7 @@ def add_argument_to(
     help: str = "print shell completion script",                    # pylint: disable=W0622
     parent: Opt[ArgumentParser] = None,
     preamble: Union[str, dict[str, str]] = "",
+    metavar: Opt[Union[str, tuple[str, ...]]] = None,
 ) -> _ActionsContainerT:
     """
     option_string:
@@ -1534,12 +1535,16 @@ def add_argument_to(
       required in subcommand mode
     preamble:
       see `complete` for details
+    metavar:
+      custom metavar string or tuple of strings to display in help
     """
     if isinstance(option_string, str):
         option_string = [option_string]
     kwargs = {
         "choices": SUPPORTED_SHELLS, "default": None, "help": help,
         "action": completion_action(parent, preamble)}
+    if metavar is not None:
+        kwargs["metavar"] = metavar
 
     if option_string[0][0] != "-": # subparser mode
         kwargs.update(default=SUPPORTED_SHELLS[0], nargs="?")

@@ -815,6 +815,22 @@ def test_add_argument_to_group_typing():
     assert shtab.add_argument_to(group) is group, "should return same object"
 
 
+def test_add_argument_to_metavar():
+    parser = ArgumentParser(prog="test")
+    shtab.add_argument_to(parser, ["-s", "--shell"], metavar="<shell>")
+    help_text = parser.format_help()
+    assert "-s, --shell <shell>" in help_text
+
+
+def test_add_argument_to_positional_metavar():
+    parser = ArgumentParser(prog="test")
+    subparsers = parser.add_subparsers()
+    sub = subparsers.add_parser("completion", help="help message")
+    shtab.add_argument_to(sub, "shell", parent=parser, metavar="SHELL")
+    help_text = sub.format_help()
+    assert "SHELL" in help_text
+
+
 @fix_shell
 def test_add_argument_to_positional(shell, capsys):
     parser = ArgumentParser(prog="test")
