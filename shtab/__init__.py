@@ -67,9 +67,10 @@ def glob(*patterns: str) -> CompleteType:
     - any file: `shtab.FILE` (instead of `glob("*")`)
     - any directory: `shtab.DIRECTORY` (instead of `glob("*/")`)
     """
+    zsh_pattern = f"({'|'.join(patterns)})" if len(patterns) > 1 else (patterns[0] if patterns else "*")
     return {
         "bash": f"_shtab_glob_compgen_{sha(patterns)}",
-        "zsh": f"_files -g '({'|'.join(patterns)})'",
+        "zsh": f"_files -g '{zsh_pattern}'",
         "tcsh": f"f:{{{','.join(patterns)}}}",
         "fish": f"(_shtab_glob_compgen_{sha(patterns)})",
         "powershell": f"_shtab_glob_compgen_{sha(patterns)}",

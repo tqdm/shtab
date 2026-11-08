@@ -383,6 +383,16 @@ complete -C 'pathcomplete --config '
     assert "notes.txt" not in output
 
 
+def test_glob_zsh():
+    # Single pattern should not be enclosed in parentheses (#270)
+    single = shtab.glob("*.toml")
+    assert single["zsh"] == "_files -g '*.toml'"
+
+    # Multiple patterns should be alternation enclosed in parentheses
+    multi = shtab.glob("*.toml", "*.yaml")
+    assert multi["zsh"] == "_files -g '(*.toml|*.yaml)'"
+
+
 def powershell_candidates(completion, cmdline):
     """Source `completion` in PowerShell, then return the completion candidates for `cmdline`."""
     if not shutil.which('pwsh'):
