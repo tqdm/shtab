@@ -946,7 +946,6 @@ def test_fallbacks(shell, test_parser):
         assert "-a list -d 'myprog list'" in completion
 
 
-
 def test_main_invalid_parser_format(capsys):
     """A parser reference without module.attr format exits 2 instead of ValueError traceback."""
     with pytest.raises(SystemExit) as exc_info:
