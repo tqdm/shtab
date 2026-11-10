@@ -41,7 +41,10 @@ def main(argv=None):
     logging.basicConfig(level=args.loglevel)
     log.debug(args)
 
-    module, other_parser = args.parser.rsplit(".", 1)
+    try:
+        module, other_parser = args.parser.rsplit(".", 1)
+    except ValueError:
+        parser.error("parser must be in 'module.attr' format, got {!r}".format(args.parser))
     if sys.path and sys.path[0]:
         # not blank so not searching curdir
         sys.path.insert(1, os.curdir)
