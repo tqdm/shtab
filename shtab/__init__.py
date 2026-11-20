@@ -1141,24 +1141,30 @@ def _powershell_list(items):
     return f"@({escaped})"
 
 
+def _powershell_ordinal_hashtable(entries):
+    """
+    Serialize (key, value) pairs of PowerShell expressions to a case-sensitive hashtable.
+
+    Hash literals (`@{}`) compare keys case-insensitively, so keys such as `-c` and `-C`
+    would be duplicates and the whole script would fail to parse (#267).
+    """
+    table = "[System.Collections.Hashtable]::new([System.StringComparer]::Ordinal)"
+    if not entries:
+        return table
+    lines = [f"  $table[{key}] = {value}" for key, value in entries]
+    return "& {\n  $table = " + table + "\n" + "\n".join(lines) + "\n  $table\n}"
+
+
 def _powershell_hashtable(d):
-    """Serialize a dict[str, list[str]] to PowerShell @{} syntax."""
-    if not d:
-        return "@{}"
-    entries = [
-        f"    {_powershell_escape(key)} = {_powershell_list(values)}"
-        for key, values in sorted(d.items())]
-    return "@{\n" + "\n".join(entries) + "\n}"
+    """Serialize a dict[str, list[str]] to a PowerShell hashtable."""
+    return _powershell_ordinal_hashtable([
+        (_powershell_escape(key), _powershell_list(values)) for key, values in sorted(d.items())])
 
 
 def _powershell_flat_hashtable(d):
-    """Serialize a dict[str, str] to PowerShell @{} syntax."""
-    if not d:
-        return "@{}"
-    entries = [
-        f"    {_powershell_escape(key)} = {_powershell_escape(value)}"
-        for key, value in sorted(d.items())]
-    return "@{\n" + "\n".join(entries) + "\n}"
+    """Serialize a dict[str, str] to a PowerShell hashtable."""
+    return _powershell_ordinal_hashtable([
+        (_powershell_escape(key), _powershell_escape(value)) for key, value in sorted(d.items())])
 
 
 def get_powershell_commands(root_parser, root_prefix, choice_functions=None):
