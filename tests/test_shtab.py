@@ -803,6 +803,19 @@ def test_powershell_single_token(test_parser, change_dir):
     assert powershell_candidates(completion, "myprog c") == ["create"]
 
 
+def test_powershell_case_sensitive_keys():
+    """Names differing only in case must not clash in the completion data (#267)"""
+    parser = ArgumentParser(prog="myprog")
+    parser.add_argument("-c", action="store_true", help="lower case")
+    parser.add_argument("-C", help="upper case")
+    subparsers = parser.add_subparsers()
+    subparsers.add_parser("a", help="lower a")
+    subparsers.add_parser("A", help="upper A")
+    completion = complete(parser, 'powershell')
+    assert powershell_candidates(completion, "myprog -") == ["-h", "--help", "-c", "-C"]
+    assert powershell_candidates(completion, "myprog ") == ["a", "A"]
+
+
 def test_fish_global_option_value(test_parser):
     """Subcommands complete after `--global-opt value` (#228)"""
     completion = complete(test_parser, 'fish')
