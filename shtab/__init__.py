@@ -783,7 +783,17 @@ typeset -A opt_args
 
 if [[ $zsh_eval_context[-1] == eval ]]; then
   # eval/source/. command, register function for later
-  compdef ${root_prefix} -N ${prog}
+  ${root_prefix}_register() {
+    # `compdef` is only defined once `compinit` has run
+    if (( $+functions[compdef] )); then
+      compdef ${root_prefix} -N ${prog}
+      # Remove the registration hook to avoid multiple compdef calls
+      add-zsh-hook -d precmd ${root_prefix}_register
+    fi
+  }
+  # Register the completer before the next prompt
+  autoload -Uz add-zsh-hook
+  add-zsh-hook precmd ${root_prefix}_register
 else
   # autoload from fpath, call function directly
   ${root_prefix} "$@\"
