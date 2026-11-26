@@ -419,6 +419,13 @@ $results.CompletionMatches |
     return [line for line in proc.splitlines() if line.strip()]
 
 
+def ps_cands(change_dir, parser):
+    """Create `target_dir` and return a `candidates(cmdline)` helper for `parser` (PowerShell)."""
+    (change_dir / "target_dir").mkdir()
+    completion = complete(parser, 'powershell')
+    return lambda cmdline: powershell_candidates(completion, cmdline)
+
+
 def tcsh_candidates(completion, cmdlines, cwd):
     """
     Return pty-driven completion candidates for each of `cmdlines`.
@@ -633,6 +640,62 @@ def test_bash_dir_collision(change_dir, test_parser):
         "myprog create ",  # choices should take priority over dirs
         "myprog create alpha subdir/",  # dirs should still have trailing `/`
     ]
+
+
+@pytest.mark.parametrize(
+    "action", ["store_true", "store_false", "count", "store_const", "append_const", "custom"])
+def test_powershell_flag_before_positional(action, change_dir):
+    class CustomFlagAction(Action):
+        def __init__(self, option_strings, dest, **kwargs):
+            super().__init__(option_strings, dest, nargs=0, **kwargs)
+
+        def __call__(self, parser, namespace, values, option_string=None):
+            setattr(namespace, self.dest, True)
+
+    parser = ArgumentParser(prog="myprog")
+    if action == "custom":
+        parser.add_argument("--flag", action=CustomFlagAction)
+    elif action in ("store_const", "append_const"):
+        parser.add_argument("--flag", action=action, const=True)
+    else:
+        parser.add_argument("--flag", action=action)
+    parser.add_argument("dest").complete = shtab.DIRECTORY
+    cands = ps_cands(change_dir, parser)
+    assert cands("myprog --flag target_") == [f"target_dir{os.sep}"]
+
+
+def test_powershell_flags_preserve_positional_progress(change_dir):
+    parser = ArgumentParser(prog="myprog")
+    parser.add_argument("--force", action="store_true")
+    parser.add_argument("-v", action="count")
+    parser.add_argument("mode", choices=["fast", "slow"])
+    parser.add_argument("dest").complete = shtab.DIRECTORY
+    cands = ps_cands(change_dir, parser)
+    assert cands("myprog --force -v -v f") == ["fast"]
+    assert cands("myprog fast --force -v target_") == [f"target_dir{os.sep}"]
+
+
+def test_powershell_flag_before_subcommand(change_dir):
+    parser = ArgumentParser(prog="myprog")
+    parser.add_argument("--force", action="store_true")
+    child = parser.add_subparsers(dest="command").add_parser("create", help="create a destination")
+    child.add_argument("--force", action="store_true")
+    child.add_argument("dest").complete = shtab.DIRECTORY
+    cands = ps_cands(change_dir, parser)
+    assert cands("myprog --force cr") == ["create"]
+    assert cands("myprog --force create --force target_") == [f"target_dir{os.sep}"]
+
+
+def test_powershell_value_option_still_consumes_its_argument(change_dir):
+    parser = ArgumentParser(prog="myprog")
+    parser.add_argument("--force", action="store_true")
+    parser.add_argument("--format", choices=["json", "yaml"])
+    parser.add_argument("dest").complete = shtab.DIRECTORY
+    cands = ps_cands(change_dir, parser)
+    assert cands("myprog --format j") == ["json"]
+    assert cands("myprog --force --format j") == ["json"]
+    assert cands("myprog --format json target_") == [f"target_dir{os.sep}"]
+    assert cands("myprog --format json --force target_") == [f"target_dir{os.sep}"]
 
 
 def test_powershell_single_token(test_parser, change_dir):
