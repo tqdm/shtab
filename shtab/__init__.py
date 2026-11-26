@@ -284,7 +284,7 @@ def get_bash_commands(root_parser, root_prefix, choice_functions=None):
                 compgens.append(f"{prefix}_pos_{i}_COMPGEN={quote(comp_pattern)}")
             elif positional.choices:
                 # choices (including subparsers & shtab `.complete` functions)
-                log.debug(f"choices:{prefix}:{sorted(positional.choices, key=str)}")
+                log.debug("choices:%s:%s", prefix, sorted(positional.choices, key=str))
                 if is_subparser(positional):
                     public_cmds = get_public_subcommands(positional)
                 this_positional_choices = []
@@ -292,7 +292,7 @@ def get_bash_commands(root_parser, root_prefix, choice_functions=None):
                     if isinstance(choice, Choice):
                         # append special completion type to `compgens`
                         # NOTE: overrides `.complete` attribute
-                        log.debug(f"Choice.{choice.type}:{prefix}:{positional.dest}")
+                        log.debug("Choice.%s:%s:%s", choice.type, prefix, positional.dest)
                         compgens.append(f"{prefix}_pos_{i}_COMPGEN="
                                         f"{quote(choice_type2fn[choice.type])}")
                     elif is_subparser(positional):
@@ -317,7 +317,7 @@ def get_bash_commands(root_parser, root_prefix, choice_functions=None):
 
         if discovered_subparsers:
             subparsers.append(f"{prefix}_subparsers=({join(discovered_subparsers)})")
-            log.debug(f"subcommands:{prefix}:{discovered_subparsers}")
+            log.debug("subcommands:%s:%s", prefix, discovered_subparsers)
 
         # optional arguments
         option_strings_list = join(
@@ -341,7 +341,7 @@ def get_bash_commands(root_parser, root_prefix, choice_functions=None):
                         # append special completion type to `compgens`
                         # NOTE: overrides `.complete` attribute
                         if isinstance(choice, Choice):
-                            log.debug(f"Choice.{choice.type}:{prefix}:{optional.dest}")
+                            log.debug("Choice.%s:%s:%s", choice.type, prefix, optional.dest)
                             func_str = choice_type2fn[choice.type]
                             compgens.append(f"{prefix}_{wordify(option_string)}_COMPGEN="
                                             f"{quote(func_str)}")
@@ -649,7 +649,7 @@ def complete_zsh(parser, root_prefix=None, preamble="", choice_functions=None):
         for sub in parser._get_positional_actions():
             if sub.help == SUPPRESS or not is_subparser(sub):
                 continue
-            log.debug(f"subparser:choices:{prefix}:{sorted(sub.choices)}")
+            log.debug("subparser:choices:%s:%s", prefix, sorted(sub.choices))
             public_cmds = get_public_subcommands(sub)
             for cmd, subparser in sub.choices.items():
                 if cmd not in public_cmds:
@@ -1196,7 +1196,7 @@ def get_powershell_commands(root_parser, root_prefix, choice_functions=None):
                 if comp_pattern:
                     compgens[action_key] = comp_pattern
             elif positional.choices:
-                log.debug(f"choices:{prefix}:{sorted(positional.choices, key=str)}")
+                log.debug("choices:%s:%s", prefix, sorted(positional.choices, key=str))
                 this_positional_choices = []
                 for choice in positional.choices:
                     if isinstance(positional.choices, dict):
@@ -1225,7 +1225,7 @@ def get_powershell_commands(root_parser, root_prefix, choice_functions=None):
                 nargs[action_key] = str(positional.nargs)
         if discovered_subparsers:
             subparsers[prefix] = discovered_subparsers
-            log.debug(f"subcommands:{prefix}:{discovered_subparsers}")
+            log.debug("subcommands:%s:%s", prefix, discovered_subparsers)
         option_strings[prefix] = sum(
             (opt.option_strings for opt in parser._get_optional_actions() if opt.help != SUPPRESS),
             [])
