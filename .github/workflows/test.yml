@@ -11,7 +11,7 @@ jobs:
       matrix:
         python: ['3.x']
         os: [ubuntu, macos, windows]
-        include: [{python: 3.9, os: ubuntu}] # min supported (see pyproject.toml)
+        include: [{python: '3.10', os: ubuntu}] # min supported (see pyproject.toml)
     runs-on: ${{ matrix.os }}-latest
     steps:
     - uses: actions/checkout@v7

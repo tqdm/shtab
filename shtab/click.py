@@ -82,12 +82,12 @@ def click2argparse(command: click.Command, parser=None):
         log.debug("parser:%s", command.name)
         parser = argparse.ArgumentParser(prog=command.name, description=command.help)
     for param in command.params:
-        if getattr(param, 'deprecated', False): # click>=8.2
+        if getattr(param, 'deprecated', False):  # click>=8.2
             continue
-        if getattr(param, 'hidden', False):     # pallets/click#3788
+        if getattr(param, 'hidden', False):  # pallets/click#3788
             continue
 
-        spec = {'help': getattr(param, 'help', None)} # click>=8.5
+        spec = {'help': getattr(param, 'help', None)}  # click>=8.5
         if param.param_type_name == 'option':
             log.debug("optional:%s", param.opts)
             if param.is_flag:
@@ -118,7 +118,7 @@ def click2argparse(command: click.Command, parser=None):
         subparsers = parser.add_subparsers(dest=command.name, help=command.short_help,
                                            description=command.help, required=True)
         for name, subcmd in command.commands.items():
-            if subcmd.hidden or getattr(subcmd, 'deprecated', False):       # click>=8.2
+            if subcmd.hidden or getattr(subcmd, 'deprecated', False):  # click>=8.2
                 continue
             log.debug("subcommand:%s", name)
             subparser = subparsers.add_parser(name, help=subcmd.short_help,

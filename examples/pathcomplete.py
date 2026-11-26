@@ -11,7 +11,7 @@ import shtab  # for completion magic
 
 # mypy: disable-error-code="attr-defined"
 parser = argparse.ArgumentParser(prog="pathcomplete")
-shtab.add_argument_to(parser, ["-s", "--print-completion"]) # magic!
+shtab.add_argument_to(parser, ["-s", "--print-completion"])  # magic!
 
 # file & directory tab complete
 parser.add_argument("file", nargs="?").complete = shtab.FILE

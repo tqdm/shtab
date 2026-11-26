@@ -6,7 +6,7 @@ from examples import click_process, click_subcommand
 from shtab.main import main
 
 # pylint: disable-next=unused-import
-from .test_shtab import fix_shell, no_log_info  # noqa: F401, yapf: disable
+from .test_shtab import fix_shell, no_log_info  # noqa: F401
 
 ARG_HELP = version('click') >= '8.5'
 

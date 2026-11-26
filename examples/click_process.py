@@ -9,7 +9,7 @@ ARG_HELP = version('click') >= '8.5'
 
 
 @click.command('click-process')
-@shtab.click.option()                                                        # magic!
+@shtab.click.option()  # magic!
 @click.argument('out-dir', type=click.Path(file_okay=False), required=False,
                 **({'help': "Output directory."} if ARG_HELP else {}))
 @click.option('--config', type=click.File(), help="Config file.")
@@ -21,4 +21,4 @@ def process(config, out_dir, quiet):
 
 
 if __name__ == '__main__':
-    process()      # pylint: disable=no-value-for-parameter
+    process()  # pylint: disable=no-value-for-parameter

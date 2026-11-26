@@ -19,7 +19,7 @@ authors = [{name = "Casper da Costa-Luis", email = "casper.dcl@physics.org"}]
 maintainers = [{name = "tqdm developers", email = "devs@tqdm.ml"}]
 description = "Automagic shell tab completion for Python CLI applications"
 readme = "README.rst"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 keywords = ["tab", "completion", "argparse", "shell", "bash", "zsh", "tcsh", "fish", "powershell", "pwsh"]
 license = {text = "MPL-2.0"}
 # Trove classifiers (https://pypi.org/pypi?%3Aaction=list_classifiers)
@@ -44,12 +44,12 @@ classifiers = [
     "Programming Language :: Other Scripting Engines",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Unix Shell",
     "Topic :: Desktop Environment",
@@ -86,7 +86,7 @@ extend_ignore = ["E261", "N400", "P101"]
 exclude = [".git", "__pycache__", "build", "dist", ".eggs"]
 
 [tool.yapf]
-spaces_before_comment = [15, 20]
+spaces_before_comment = 2
 arithmetic_precedence_indication = true
 allow_split_before_dict_value = false
 coalesce_brackets = true

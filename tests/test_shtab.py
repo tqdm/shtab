@@ -8,6 +8,7 @@ import signal
 import subprocess
 import time
 from argparse import SUPPRESS, Action, ArgumentParser
+from enum import Enum
 
 import pytest
 
@@ -302,6 +303,25 @@ def test_non_sequence_choices(shell, tmp_path):
         pytest.skip("WiP")
 
 
+@fix_shell
+def test_unorderable_choices(shell):
+    class Color(Enum):
+        RED = 1
+        GREEN = 2
+
+        def __str__(self):
+            return self.name
+
+    parser = ArgumentParser(prog="myprog", add_help=False)
+    parser.add_argument("color", type=Color.__getitem__, choices=list(Color))
+    completion = complete(parser, shell)
+    if shell == 'bash':
+        shell = Bash(completion)
+        shell.compgen('-W "${_shtab_myprog_pos_0_choices[*]}"', "R", "RED")
+    else:
+        assert "GREEN" in completion
+
+
 def test_zsh_remainder_custom_complete_has_optional_message_colon():
     parser = ArgumentParser(prog="test")
     parser.add_argument("command", nargs=1).complete = {'zsh': "{_command_names -e}"}
@@ -412,7 +432,7 @@ def tcsh_candidates(completion, cmdlines, cwd):
     script.write_text(completion)
     prompt = "|candidates|"
     pid, fd = pty.fork()
-    if pid == 0:   # child
+    if pid == 0:  # child
         os.chdir(cwd)
         os.environ['TERM'] = 'xterm'
         os.environ['COLUMNS'] = '999'
@@ -546,7 +566,7 @@ def bash_candidates(completion, cmdlines, cwd):
     script.write_text(completion)
     prompt = "|candidates|"
     pid, fd = pty.fork()
-    if pid == 0:   # child
+    if pid == 0:  # child
         os.chdir(cwd)
         os.environ['TERM'] = 'dumb'
         os.environ['COLUMNS'] = '999'
@@ -588,7 +608,7 @@ def bash_candidates(completion, cmdlines, cwd):
             # the typed line is echoed back, followed by whatever readline inserted
             read(lambda cmdline=cmdline, seen=seen: cmdline in output[seen:])
             candidates.append(output[seen:])
-        os.write(fd, b"\x15exit\n") # discard the line & quit
+        os.write(fd, b"\x15exit\n")  # discard the line & quit
         read(lambda: True)
     finally:
         os.close(fd)
@@ -610,8 +630,8 @@ def test_bash_dir_collision(change_dir, test_parser):
         "`-o filenames` must not apply readline filename post-processing globally"
     lines = bash_candidates(completion, ["myprog cre", "myprog create alpha sub"], change_dir)
     assert lines == [
-        "myprog create ",              # choices should take priority over dirs
-        "myprog create alpha subdir/", # dirs should still have trailing `/`
+        "myprog create ",  # choices should take priority over dirs
+        "myprog create alpha subdir/",  # dirs should still have trailing `/`
     ]
 
 
@@ -813,6 +833,39 @@ def test_add_argument_to_group_typing():
     parser = ArgumentParser(prog="test")
     group = parser.add_argument_group("completion")
     assert shtab.add_argument_to(group) is group, "should return same object"
+
+
+@pytest.mark.parametrize("metavar", ["SHELL", "<shell>"])
+@pytest.mark.parametrize("grouped", [False, True])
+def test_add_argument_to_optional_metavar(metavar, grouped, capsys):
+    parser = ArgumentParser(prog="test")
+    target = parser.add_argument_group("completion") if grouped else parser
+    assert shtab.add_argument_to(target, ["-s", "--shell"], metavar=metavar) is target
+    assert f"--shell {metavar}" in parser.format_help()
+    with pytest.raises(SystemExit) as exc:
+        parser.parse_args(["--shell", "bash"])
+    assert exc.value.code == 0
+    assert capsys.readouterr().out.rstrip() == shtab.complete(parser, "bash").rstrip()
+    with pytest.raises(SystemExit) as exc:
+        parser.parse_args(["--shell", "invalid-shell"])
+    assert exc.value.code == 2
+    assert "invalid choice" in capsys.readouterr().err
+
+
+def test_add_argument_to_positional_metavar(capsys):
+    parser = ArgumentParser(prog="test")
+    sub = parser.add_subparsers().add_parser("completion")
+    shtab.add_argument_to(sub, "shell", parent=parser, metavar="SHELL")
+    assert "[SHELL]" in sub.format_help()
+    for args in (["completion", "bash"], ["completion"]):
+        with pytest.raises(SystemExit) as exc:
+            parser.parse_args(args)
+        assert exc.value.code == 0
+        assert capsys.readouterr().out.rstrip() == shtab.complete(parser, "bash").rstrip()
+    with pytest.raises(SystemExit) as exc:
+        parser.parse_args(["completion", "invalid-shell"])
+    assert exc.value.code == 2
+    assert "invalid choice" in capsys.readouterr().err
 
 
 @fix_shell

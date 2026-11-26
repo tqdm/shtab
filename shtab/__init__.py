@@ -5,6 +5,7 @@ from argparse import (ONE_OR_MORE, REMAINDER, SUPPRESS, ZERO_OR_MORE, Action, Ar
                       _ActionsContainer, _AppendAction, _AppendConstAction, _CountAction,
                       _HelpAction, _StoreConstAction, _VersionAction)
 from collections import defaultdict
+from collections.abc import Callable
 from contextlib import contextmanager
 from functools import total_ordering
 from importlib.metadata import PackageNotFoundError, version
@@ -12,7 +13,7 @@ from itertools import starmap
 from shlex import join, quote
 from string import Template
 from textwrap import dedent
-from typing import Any, Callable, TypeVar, Union
+from typing import Any, TypeVar, Union
 from typing import Optional as Opt
 
 try:
@@ -218,11 +219,11 @@ class Required:
 def complete2pattern(opt_complete: CompleteType, shell: str, choice_type2fn: dict[str, str],
                      preambles: list[str]) -> str:
     if isinstance(opt_complete, dict):
-        if preamble := opt_complete.get("preamble", {}).get(shell, ""): # type: ignore[union-attr]
+        if preamble := opt_complete.get("preamble", {}).get(shell, ""):  # type: ignore[union-attr]
             preambles.append(preamble)
 
     if isinstance(opt_complete, dict):
-        return opt_complete.get(shell, "") # type: ignore[return-value]
+        return opt_complete.get(shell, "")  # type: ignore[return-value]
     return choice_type2fn[opt_complete]
 
 
@@ -284,7 +285,7 @@ def get_bash_commands(root_parser, root_prefix, choice_functions=None):
                 compgens.append(f"{prefix}_pos_{i}_COMPGEN={quote(comp_pattern)}")
             elif positional.choices:
                 # choices (including subparsers & shtab `.complete` functions)
-                log.debug(f"choices:{prefix}:{sorted(positional.choices)}")
+                log.debug("choices:%s:%s", prefix, sorted(positional.choices, key=str))
                 if is_subparser(positional):
                     public_cmds = get_public_subcommands(positional)
                 this_positional_choices = []
@@ -292,7 +293,7 @@ def get_bash_commands(root_parser, root_prefix, choice_functions=None):
                     if isinstance(choice, Choice):
                         # append special completion type to `compgens`
                         # NOTE: overrides `.complete` attribute
-                        log.debug(f"Choice.{choice.type}:{prefix}:{positional.dest}")
+                        log.debug("Choice.%s:%s:%s", choice.type, prefix, positional.dest)
                         compgens.append(f"{prefix}_pos_{i}_COMPGEN="
                                         f"{quote(choice_type2fn[choice.type])}")
                     elif is_subparser(positional):
@@ -317,7 +318,7 @@ def get_bash_commands(root_parser, root_prefix, choice_functions=None):
 
         if discovered_subparsers:
             subparsers.append(f"{prefix}_subparsers=({join(discovered_subparsers)})")
-            log.debug(f"subcommands:{prefix}:{discovered_subparsers}")
+            log.debug("subcommands:%s:%s", prefix, discovered_subparsers)
 
         # optional arguments
         option_strings_list = join(
@@ -341,7 +342,7 @@ def get_bash_commands(root_parser, root_prefix, choice_functions=None):
                         # append special completion type to `compgens`
                         # NOTE: overrides `.complete` attribute
                         if isinstance(choice, Choice):
-                            log.debug(f"Choice.{choice.type}:{prefix}:{optional.dest}")
+                            log.debug("Choice.%s:%s:%s", choice.type, prefix, optional.dest)
                             func_str = choice_type2fn[choice.type]
                             compgens.append(f"{prefix}_{wordify(option_string)}_COMPGEN="
                                             f"{quote(func_str)}")
@@ -567,7 +568,7 @@ def get_formatter(parser):
     formatter = parser._get_formatter()
     backup_width = formatter._width
     try:
-        formatter._width = 999 # large number to effectively disable wrapping
+        formatter._width = 999  # large number to effectively disable wrapping
 
         def inner(str_or_parser):
             return head(
@@ -649,7 +650,7 @@ def complete_zsh(parser, root_prefix=None, preamble="", choice_functions=None):
         for sub in parser._get_positional_actions():
             if sub.help == SUPPRESS or not is_subparser(sub):
                 continue
-            log.debug(f"subparser:choices:{prefix}:{sorted(sub.choices)}")
+            log.debug("subparser:choices:%s:%s", prefix, sorted(sub.choices))
             public_cmds = get_public_subcommands(sub)
             for cmd, subparser in sub.choices.items():
                 if cmd not in public_cmds:
@@ -948,8 +949,8 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
     prog = parser.prog
     prefix = wordify(f"_shtab_{root_prefix or prog}")
     completions = []
-    commands = []           # all (sub)command paths, e.g. ["sub", "sub subsub"]
-    opts_with_value = set() # option strings which consume a following value token
+    commands = []  # all (sub)command paths, e.g. ["sub", "sub subsub"]
+    opts_with_value = set()  # option strings which consume a following value token
     preambles = [preamble] if preamble else []
 
     choice_type2fn = {k: v["fish"] for k, v in CHOICE_FUNCTIONS.items()}
@@ -1005,8 +1006,8 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
                     output.append(f'-d {quote(desc)}')
             completions.append(' '.join(output))
 
-        index = 0          # the next positional slot (number of preceding positional arguments)
-        open_ended = False # an earlier positional consumes any number of tokens
+        index = 0  # the next positional slot (number of preceding positional arguments)
+        open_ended = False  # an earlier positional consumes any number of tokens
 
         for positional in cparser._get_positional_actions():
             if positional.help == SUPPRESS:
@@ -1015,7 +1016,7 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
             if is_subparser(positional):
                 public_cmds = get_public_subcommands(positional)
                 pos_test = pos_condition(index, 1, open_ended)
-                for subcmd, subparser in positional.choices.items(): # type: ignore[union-attr]
+                for subcmd, subparser in positional.choices.items():  # type: ignore[union-attr]
                     if subcmd not in public_cmds:
                         continue
                     log.debug("%s| | SubParser: %s", log_prefix, subcmd)
@@ -1196,7 +1197,7 @@ def get_powershell_commands(root_parser, root_prefix, choice_functions=None):
                 if comp_pattern:
                     compgens[action_key] = comp_pattern
             elif positional.choices:
-                log.debug(f"choices:{prefix}:{sorted(positional.choices)}")
+                log.debug("choices:%s:%s", prefix, sorted(positional.choices, key=str))
                 this_positional_choices = []
                 for choice in positional.choices:
                     if isinstance(positional.choices, dict):
@@ -1225,7 +1226,7 @@ def get_powershell_commands(root_parser, root_prefix, choice_functions=None):
                 nargs[action_key] = str(positional.nargs)
         if discovered_subparsers:
             subparsers[prefix] = discovered_subparsers
-            log.debug(f"subcommands:{prefix}:{discovered_subparsers}")
+            log.debug("subcommands:%s:%s", prefix, discovered_subparsers)
         option_strings[prefix] = sum(
             (opt.option_strings for opt in parser._get_optional_actions() if opt.help != SUPPRESS),
             [])
@@ -1509,8 +1510,7 @@ def complete(parser: ArgumentParser, shell: str = "bash", root_prefix: Opt[str] 
     )
 
 
-def completion_action(parent: Opt[ArgumentParser] = None, preamble: Union[str, dict[str,
-                                                                                    str]] = ""):
+def completion_action(parent: Opt[ArgumentParser] = None, preamble: (str | dict[str, str]) = ""):
     class PrintCompletionAction(_ShtabPrintCompletionAction):
         def __call__(self, parser, namespace, values, option_string=None):
             print(complete(parent or parser, values, preamble=preamble))
@@ -1521,10 +1521,11 @@ def completion_action(parent: Opt[ArgumentParser] = None, preamble: Union[str, d
 
 def add_argument_to(
     parser: _ActionsContainerT,
-    option_string: Union[str, list[str]] = "--print-completion",
-    help: str = "print shell completion script",                    # pylint: disable=W0622
+    option_string: str | list[str] = "--print-completion",
+    help: str = "print shell completion script",  # pylint: disable=W0622
     parent: Opt[ArgumentParser] = None,
-    preamble: Union[str, dict[str, str]] = "",
+    preamble: str | dict[str, str] = "",
+    metavar: Opt[str] = None,
 ) -> _ActionsContainerT:
     """
     option_string:
@@ -1534,14 +1535,16 @@ def add_argument_to(
       required in subcommand mode
     preamble:
       see `complete` for details
+    metavar:
+      replaces shell choices list in help output
     """
     if isinstance(option_string, str):
         option_string = [option_string]
     kwargs = {
-        "choices": SUPPORTED_SHELLS, "default": None, "help": help,
+        "choices": SUPPORTED_SHELLS, "default": None, "help": help, "metavar": metavar,
         "action": completion_action(parent, preamble)}
 
-    if option_string[0][0] != "-": # subparser mode
+    if option_string[0][0] != "-":  # subparser mode
         kwargs.update(default=SUPPORTED_SHELLS[0], nargs="?")
         if parent is None:
             raise ValueError("subcommand mode: parent required")
