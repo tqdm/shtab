@@ -419,6 +419,13 @@ $results.CompletionMatches |
     return [line for line in proc.splitlines() if line.strip()]
 
 
+def ps_cands(change_dir, parser):
+    """Create `target_dir` and return a `candidates(cmdline)` helper for `parser` (PowerShell)."""
+    (change_dir / "target_dir").mkdir()
+    completion = complete(parser, 'powershell')
+    return lambda cmdline: powershell_candidates(completion, cmdline)
+
+
 def tcsh_candidates(completion, cmdlines, cwd):
     """
     Return pty-driven completion candidates for each of `cmdlines`.
@@ -653,9 +660,8 @@ def test_powershell_flag_before_positional(action, change_dir):
     else:
         parser.add_argument("--flag", action=action)
     parser.add_argument("dest").complete = shtab.DIRECTORY
-    (change_dir / "target_dir").mkdir()
-    completion = complete(parser, 'powershell')
-    assert powershell_candidates(completion, "myprog --flag target_") == [f"target_dir{os.sep}"]
+    cands = ps_cands(change_dir, parser)
+    assert cands("myprog --flag target_") == [f"target_dir{os.sep}"]
 
 
 def test_powershell_flags_preserve_positional_progress(change_dir):
@@ -664,11 +670,9 @@ def test_powershell_flags_preserve_positional_progress(change_dir):
     parser.add_argument("-v", action="count")
     parser.add_argument("mode", choices=["fast", "slow"])
     parser.add_argument("dest").complete = shtab.DIRECTORY
-    (change_dir / "target_dir").mkdir()
-    completion = complete(parser, 'powershell')
-    assert powershell_candidates(completion, "myprog --force -v -v f") == ["fast"]
-    assert powershell_candidates(completion,
-                                 "myprog fast --force -v target_") == [f"target_dir{os.sep}"]
+    cands = ps_cands(change_dir, parser)
+    assert cands("myprog --force -v -v f") == ["fast"]
+    assert cands("myprog fast --force -v target_") == [f"target_dir{os.sep}"]
 
 
 def test_powershell_flag_before_subcommand(change_dir):
@@ -677,11 +681,9 @@ def test_powershell_flag_before_subcommand(change_dir):
     child = parser.add_subparsers(dest="command").add_parser("create", help="create a destination")
     child.add_argument("--force", action="store_true")
     child.add_argument("dest").complete = shtab.DIRECTORY
-    (change_dir / "target_dir").mkdir()
-    completion = complete(parser, 'powershell')
-    assert powershell_candidates(completion, "myprog --force cr") == ["create"]
-    assert powershell_candidates(completion, "myprog --force create --force target_") == [
-        f"target_dir{os.sep}"]
+    cands = ps_cands(change_dir, parser)
+    assert cands("myprog --force cr") == ["create"]
+    assert cands("myprog --force create --force target_") == [f"target_dir{os.sep}"]
 
 
 def test_powershell_value_option_still_consumes_its_argument(change_dir):
@@ -689,14 +691,11 @@ def test_powershell_value_option_still_consumes_its_argument(change_dir):
     parser.add_argument("--force", action="store_true")
     parser.add_argument("--format", choices=["json", "yaml"])
     parser.add_argument("dest").complete = shtab.DIRECTORY
-    (change_dir / "target_dir").mkdir()
-    completion = complete(parser, 'powershell')
-    assert powershell_candidates(completion, "myprog --format j") == ["json"]
-    assert powershell_candidates(completion, "myprog --force --format j") == ["json"]
-    assert powershell_candidates(completion,
-                                 "myprog --format json target_") == [f"target_dir{os.sep}"]
-    assert powershell_candidates(completion, "myprog --format json --force target_") == [
-        f"target_dir{os.sep}"]
+    cands = ps_cands(change_dir, parser)
+    assert cands("myprog --format j") == ["json"]
+    assert cands("myprog --force --format j") == ["json"]
+    assert cands("myprog --format json target_") == [f"target_dir{os.sep}"]
+    assert cands("myprog --format json --force target_") == [f"target_dir{os.sep}"]
 
 
 def test_powershell_single_token(test_parser, change_dir):
