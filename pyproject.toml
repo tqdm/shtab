@@ -110,6 +110,7 @@ no_namespace_packages = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-v --tb=short -rxs -W=error --durations=5 --cov=shtab --cov-fail-under=85"
+markers = ["slow: spawns shell pty/subprocess"]
 
 [tool.coverage.run]
 branch = true

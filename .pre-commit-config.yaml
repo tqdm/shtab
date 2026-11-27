@@ -30,7 +30,7 @@ repos:
     name: pytest
     language: python
     entry: pytest
-    args: [-vv]
+    args: [-vv, -m, "not slow"]
     types: [python]
     pass_filenames: false
     additional_dependencies: [pytest-cov, click]
