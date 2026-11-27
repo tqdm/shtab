@@ -260,11 +260,33 @@ def zsh_specs(completion, name, tmp_path):
     subprocess.check_call(['zsh', '-nc', completion])
     script = tmp_path / "completion.zsh"
     script.write_text(completion)
-    # `eval` so the script registers itself rather than running `compdef` (unavailable here)
-    values = subprocess.check_output(
-        ['zsh', '-f', '-c', f'eval "$(<{script})" 2>/dev/null; print -rl -- "${{(@){name}}}"'],
-        text=True)
-    return values.splitlines()
+    # `eval` so the script registers a hook rather than running `compdef` (unavailable here)
+    proc = subprocess.run(
+        ['zsh', '-f', '-c', f'eval "$(<{script})" && print -rl -- "${{(@){name}}}"'], text=True,
+        capture_output=True)
+    # `eval` before `compinit` must not fail on a missing `compdef` (#277)
+    assert proc.returncode == 0 and not proc.stderr, proc.stderr
+    return proc.stdout.splitlines()
+
+
+def test_zsh_eval_registers_after_compinit(tmp_path):
+    """`compinit` running after `eval`"""
+    if not shutil.which('zsh'):
+        pytest.skip("zsh not available")
+    script = tmp_path / "completion.zsh"
+    script.write_text(complete(ArgumentParser(prog="test"), "zsh"))
+    dump = tmp_path / ".zcompdump"
+    # `zsh -c` never reaches a prompt, so run prompt hooks the way zsh's prompt loop does
+    values = subprocess.check_output([
+        'zsh', '-f', '-c', f"""\
+eval "$(<{script})"
+autoload -Uz compinit
+compinit -u -d {dump}
+for hook in $precmd_functions; do "$hook"; done
+print -r -- "${{_comps[test]}}"
+print -r -- "${{precmd_functions}}"
+"""], text=True)
+    assert values.splitlines() == ["_shtab_test", ""]
 
 
 @pytest.mark.parametrize("help_text", [
