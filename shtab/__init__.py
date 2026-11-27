@@ -232,6 +232,26 @@ def wordify(string: str):
     return re.sub("\\W", "_", string)
 
 
+def quote_prog(shell: str, string: str) -> str:
+    """Quote a program name for use inside a generated shell script.
+
+    The name is interpolated into shell commands, so inserting it raw allows
+    metacharacters in `parser.prog` to change the generated script.
+    """
+    name = str(string)
+    if shell == "bash":
+        return quote(name)
+    if shell in ("tcsh", "fish"):
+        return re.sub(r"([^\w./-])", r"\\\1", name)
+    if shell == "powershell":
+        if re.fullmatch(r"[A-Za-z0-9._/-]+", name):
+            return name
+        return "'" + name.replace("'", "''") + "'"
+    if shell == "zsh":
+        return quote(name)
+    return name
+
+
 def get_public_subcommands(sub) -> dict[str, str]:
     """returns {'subcommand': "help text", ...} for a given subparser"""
     public_parsers = {id(sub.choices[i.dest]): i.help for i in sub._get_subactions()}
@@ -555,7 +575,7 @@ complete -o bashdefault -F ${root_prefix} ${prog}""").safe_substitute(
         nargs="\n".join(nargs),
         preamble=f"\n# Custom Preamble\n{preamble}\n# End Custom Preamble\n" if preamble else "",
         root_prefix=root_prefix,
-        prog=parser.prog,
+        prog=quote_prog("bash", parser.prog),
     )
 
 
@@ -597,9 +617,10 @@ def complete_zsh(parser, root_prefix=None, preamble="", choice_functions=None):
 
     See `complete` for arguments.
     """
-    prog = parser.prog
+    prog_raw = parser.prog
+    prog = quote_prog("zsh", prog_raw)
     preambles = [preamble] if preamble else []
-    root_prefix = wordify(f"_shtab_{root_prefix or prog}")
+    root_prefix = wordify(f"_shtab_{root_prefix or prog_raw}")
 
     choice_type2fn = {k: v["zsh"] for k, v in CHOICE_FUNCTIONS.items()}
     if choice_functions:
@@ -943,7 +964,7 @@ complete ${prog} \\
         ${optionals_special} \\
         'p/*/()/'""").safe_substitute(
         preamble=f"\n# Custom Preamble\n{preamble}\n# End Custom Preamble\n" if preamble else "",
-        prog=parser.prog, optionals_double=' '.join(sorted(optionals_double)),
+        prog=quote_prog("tcsh", parser.prog), optionals_double=' '.join(sorted(optionals_double)),
         optionals_single=' '.join(sorted(optionals_single)),
         optionals_eq=''.join(f'{eq} \\\n        ' for eq in eq_specials),
         optionals_special=' \\\n        '.join(specials))
@@ -956,8 +977,9 @@ def complete_fish(parser, root_prefix=None, preamble="", choice_functions=None):
 
     See `complete` for arguments.
     """
-    prog = parser.prog
-    prefix = wordify(f"_shtab_{root_prefix or prog}")
+    prog_raw = parser.prog
+    prog = quote_prog("fish", prog_raw)
+    prefix = wordify(f"_shtab_{root_prefix or prog_raw}")
     completions = []
     commands = []  # all (sub)command paths, e.g. ["sub", "sub subsub"]
     opts_with_value = set()  # option strings which consume a following value token
@@ -1124,7 +1146,7 @@ complete -c ${prog} -f
 ${completions}
 """).safe_substitute(
         preamble=f"# Custom Preamble\n{preamble}\n# End Custom Preamble\n" if preamble else "",
-        prog=parser.prog,
+        prog=prog,
         prefix=prefix,
         commands=' '.join(quote(cmd) for cmd in commands),
         opts_with_value=' '.join(quote(opt) for opt in sorted(opts_with_value)),
@@ -1486,7 +1508,7 @@ Register-ArgumentCompleter -Native -CommandName ${prog} -ScriptBlock {
         help_ht=_powershell_hashtable(help_text, _powershell_escape),
         preamble=f"\n# Custom Preamble\n{preamble}\n# End Custom Preamble\n" if preamble else "",
         root_prefix=root_prefix,
-        prog=parser.prog,
+        prog=quote_prog("powershell", parser.prog),
     )
 
 
