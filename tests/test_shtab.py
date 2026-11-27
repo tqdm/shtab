@@ -403,6 +403,29 @@ complete -C 'pathcomplete --config '
     assert "notes.txt" not in output
 
 
+def test_zsh_glob_spec(tmp_path):
+    """glob patterns must be passed to `_files -g` as filename patterns, not a qualifier."""
+    parser = ArgumentParser(prog="test", add_help=False)
+    parser.add_argument("--config").complete = shtab.glob("*.toml", "*.yml")
+    completion = complete(parser, "zsh")
+    specs = zsh_specs(completion, "_shtab_test_options", tmp_path)
+    assert specs == ["--config[config]:config:_files -g '*.toml *.yml'"]
+
+
+@pytest.mark.parametrize("patterns, expected", [
+    (("*.toml",), ["a.toml"]),
+    (("*.toml", "*.yml", "*.json"), ["a.toml", "b.yml", "c.json"]),])
+def test_zsh_glob_completion(change_dir, patterns, expected):
+    """Glob completion in zsh must actually complete matching files (single pattern too)."""
+    for name in ("a.toml", "b.yml", "c.json", "d.txt"):
+        (change_dir / name).touch()
+    parser = ArgumentParser(prog="globprog", add_help=False)
+    parser.add_argument("--config").complete = shtab.glob(*patterns)
+    completion = complete(parser, "zsh")
+    assert sorted(zsh_candidates(completion, "globprog --config ", change_dir,
+                                 "globprog")) == sorted(expected)
+
+
 def powershell_candidates(completion, cmdline):
     """Source `completion` in PowerShell, then return the completion candidates for `cmdline`."""
     if not shutil.which('pwsh'):
@@ -426,68 +449,181 @@ def ps_cands(change_dir, parser):
     return lambda cmdline: powershell_candidates(completion, cmdline)
 
 
-def tcsh_candidates(completion, cmdlines, cwd):
+def clean_ansi(chunk):
+    return re.sub(r"\x1b\[[0-9;?]*[A-Za-z]|[\a\r\b]", "", chunk.decode('utf-8', 'replace'))
+
+
+class PtyShell:
     """
-    Return pty-driven completion candidates for each of `cmdlines`.
-
-    Reason: tcsh has no `complete -C` equivalent.
+    Fork `shell` in a pty under `cwd`, and drive interactive completion.
     """
-    pty = pytest.importorskip('pty')
-    if not shutil.which('tcsh'):
-        pytest.skip("tcsh not available")
-    script = cwd / "completion.tcsh"
-    script.write_text(completion)
-    prompt = "|candidates|"
-    pid, fd = pty.fork()
-    if pid == 0:  # child
-        os.chdir(cwd)
-        os.environ['TERM'] = 'xterm'
-        os.environ['COLUMNS'] = '999'
-        os.execvp('tcsh', ['tcsh', '-f', '-i'])
-    output = ""
+    shell: str | None = None
+    args: tuple[str, ...] = ()
+    term: str = 'dumb'
 
-    def clean(chunk):
-        return re.sub(r"\x1b\[[0-9;]*[A-Za-z]|[\a\r\b]", "", chunk.decode('utf-8', 'replace'))
+    def __init__(self, cwd):
+        self.cwd = cwd
+        self.output = ""
 
-    def read(num_prompts, timeout=10.0):
-        """read until `timeout` elapses or `num_prompts` seen, then drain"""
-        nonlocal output
+    def __enter__(self):
+        pty = pytest.importorskip('pty')
+        if not shutil.which(self.shell):
+            pytest.skip(f"{self.shell} not available")
+        self.pid, self.fd = pty.fork()
+        if self.pid == 0:  # child
+            os.chdir(self.cwd)
+            os.environ['TERM'] = self.term
+            os.environ['COLUMNS'] = '999'
+            os.execvp(self.shell, [self.shell, *self.args])
+        return self
+
+    def __exit__(self, *exc):
+        os.close(self.fd)
+        os.kill(self.pid, signal.SIGKILL)
+        os.waitpid(self.pid, 0)
+
+    def write(self, data):
+        os.write(self.fd, data.encode() if isinstance(data, str) else data)
+
+    def _read(self):
+        try:
+            chunk = os.read(self.fd, 1 << 16)
+        except OSError:
+            return None
+        return chunk or None
+
+    def read_until(self, condition, timeout=10.0, drain=0.2):
+        """read until `condition()` or `timeout`, then drain remaining output"""
         deadline = time.time() + timeout
-        while output.count(prompt) < num_prompts and time.time() < deadline:
-            if select.select([fd], [], [], 0.1)[0]:
-                try:
-                    chunk = os.read(fd, 1 << 16)
-                except OSError:
+        while not condition() and time.time() < deadline:
+            if select.select([self.fd], [], [], 0.1)[0]:
+                if (chunk := self._read()) is None:
                     break
-                if not chunk:
-                    break
-                output += clean(chunk)
-        # a command just finished, give tcsh a moment to enable its line editor again
-        while select.select([fd], [], [], 0.2)[0]:
-            output += clean(os.read(fd, 1 << 16))
-        return output
+                self.output += clean_ansi(chunk)
+        # a command just finished, give shell time to enable its line editor again
+        while select.select([self.fd], [], [], drain)[0]:
+            if (chunk := self._read()) is None:
+                break
+            self.output += clean_ansi(chunk)
+        return self.output
 
-    candidates = []
-    try:
+    def read_idle(self, idle=0.6, timeout=10.0):
+        """read until output is quiet for `idle` seconds, or `timeout`"""
+        last = time.time()
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            if select.select([self.fd], [], [], 0.1)[0]:
+                if (chunk := self._read()) is None:
+                    break
+                self.output += clean_ansi(chunk)
+                last = time.time()
+            elif time.time() - last > idle:
+                break
+        return self.output
+
+
+class TcshShell(PtyShell):
+    """tcsh has no `complete -C` equivalent, so drive it with `autolist`."""
+    shell, args, term = 'tcsh', ('-f', '-i'), 'xterm'
+
+    def run(self, completion, cmdlines):
+        script = self.cwd / "completion.tcsh"
+        script.write_text(completion)
+        prompt = "|candidates|"
         # tcsh echoes what is typed, so the command setting the prompt must not contain it verbatim
-        os.write(
-            fd,
-            f'set autolist\nsource {script}\nset prompt="{prompt[:1]}""{prompt[1:]}"\n'.encode())
-        read(1)
+        self.write(f'set autolist\nsource {script}\nset prompt="{prompt[:1]}""{prompt[1:]}"\n')
+        self.read_until(lambda: self.output.count(prompt) >= 1)
+        candidates = []
         for cmdline in cmdlines:
-            seen = len(output)
+            seen, prompts = len(self.output), self.output.count(prompt)
             # `autolist` lists the candidates, ^U then discards the line, \n asks for a new prompt
-            os.write(fd, cmdline.encode() + b"\t\x15\n")
-            chunk = read(output.count(prompt) + 1)[seen:].replace(prompt, "\n")
+            self.write(cmdline + "\t\x15\n")
+            chunk = self.read_until(
+                lambda prompts=prompts: self.output.count(prompt) > prompts)[seen:]
             # drop the echoed command line & the re-drawn prompt, leaving the listed candidates
             candidates.append([
-                word for line in chunk.splitlines() if line.strip() and cmdline.strip() not in line
-                for word in line.split()])
-    finally:
-        os.close(fd)
-        os.kill(pid, signal.SIGKILL)
-        os.waitpid(pid, 0)
-    return candidates
+                word for line in chunk.replace(prompt, "\n").splitlines()
+                if line.strip() and cmdline.strip() not in line for word in line.split()])
+        return candidates
+
+
+class ZshShell(PtyShell):
+    """zsh needs interactive ZLE, so drive it with `compadd` wrapped to record candidates."""
+    shell, args = 'zsh', ('-f', '-i')
+
+    def run(self, completion, cmdline, prog):
+        script = self.cwd / "completion.zsh"
+        script.write_text(completion)
+        candidate_file = self.cwd / "zsh_candidates.txt"
+        setup = self.cwd / "zsh_setup.zsh"
+        setup.write_text("setopt zle\n"
+                         "bindkey -e\n"
+                         "autoload -Uz compinit\n"
+                         "compinit -u -d {cwd}/.zcompdump\n"
+                         "compadd() {{\n"
+                         "  local -a _cap\n"
+                         '  builtin compadd -O _cap "$@"\n'
+                         "  local _c\n"
+                         '  for _c in "$_cap[@]"; do print -r -- "$_c" >> {candidate_file}; done\n'
+                         '  builtin compadd "$@"\n'
+                         "}}\n"
+                         'eval "$(<{script})"\n'
+                         "{prog}() {{ :; }}\n".format(cwd=self.cwd, candidate_file=candidate_file,
+                                                      script=script, prog=prog))
+        prompt = "|READY|"
+        self.write(f'PROMPT="{prompt}"\n')
+        self.write(f'. "{setup}"\n')
+        self.read_until(lambda: prompt in self.output)
+        # reset candidates, trigger completion on argument, clear line
+        candidate_file.write_text("")
+        self.write(cmdline + "\t")
+        self.read_idle()
+        self.write("\x15\n")
+        self.read_idle(idle=0.2)
+        return candidate_file.read_text().splitlines() if candidate_file.exists() else []
+
+
+class BashShell(PtyShell):
+    """
+    readline's post-processing (e.g. `-o filenames` appending `/` to dirs)
+    happens after `COMPREPLY` (invisible to `compgen`), so drive bash in a pty.
+    """
+    shell, args = 'bash', ('--norc', '--noprofile', '-i')
+
+    def run(self, completion, cmdlines):
+        script = self.cwd / "completion.bash"
+        script.write_text(completion)
+        prompt = "|candidates|"
+        self.write(f"source {script}; PS1='{prompt}'\n")
+        self.read_until(lambda: self.output.count(prompt) >= 1, drain=0.3)
+        candidates = []
+        for cmdline in cmdlines:
+            seen = len(self.output)
+            self.write(cmdline + "\t")
+            # typed line (echoed back) + readline's insertion
+            self.read_until(lambda cmdline=cmdline, seen=seen: cmdline in self.output[seen:],
+                            drain=0.3)
+            candidates.append(self.output[seen:])
+        self.write("\x15exit\n")  # discard the line & quit
+        self.read_until(lambda: True)
+        return candidates
+
+
+def tcsh_candidates(completion, cmdlines, cwd):
+    """Return pty-driven completion candidates for each of `cmdlines`."""
+    with TcshShell(cwd) as shell:
+        return shell.run(completion, cmdlines)
+
+
+def zsh_candidates(completion, cmdline, cwd, prog):
+    """
+    Drive an interactive zsh and return the candidates it offers for `cmdline`.
+
+    `completion` is sourced into a fresh zsh, whose `compadd` is wrapped to record
+    the candidate strings the completion functions hand to it.
+    """
+    with ZshShell(cwd) as shell:
+        return shell.run(completion, cmdline, prog)
 
 
 @pytest.fixture(scope="module")
@@ -560,68 +696,9 @@ def test_file_completion(shell, change_dir, test_parser):
 
 
 def bash_candidates(completion, cmdlines, cwd):
-    """
-    Return pty-driven completion candidates for each of `cmdlines`.
-
-    Reason: readline's post-processing (e.g. `-o filenames` appending `/` to dirs)
-    happens after `COMPREPLY` and is thus invisible to `compgen`-based tests.
-    """
-    pty = pytest.importorskip('pty')
-    if not shutil.which('bash'):
-        pytest.skip("bash not available")
-    script = cwd / "completion.bash"
-    script.write_text(completion)
-    prompt = "|candidates|"
-    pid, fd = pty.fork()
-    if pid == 0:  # child
-        os.chdir(cwd)
-        os.environ['TERM'] = 'dumb'
-        os.environ['COLUMNS'] = '999'
-        os.execvp('bash', ['bash', '--norc', '--noprofile', '-i'])
-    output = ""
-
-    def clean(chunk):
-        return re.sub(r"\x1b\[[0-9;?]*[A-Za-z]|[\a\r\b]", "", chunk.decode('utf-8', 'replace'))
-
-    def read(condition, timeout=10.0):
-        """read until `timeout` elapses or `condition()`, then drain"""
-        nonlocal output
-        deadline = time.time() + timeout
-        while not condition() and time.time() < deadline:
-            if select.select([fd], [], [], 0.1)[0]:
-                try:
-                    chunk = os.read(fd, 1 << 16)
-                except OSError:
-                    break
-                if not chunk:
-                    break
-                output += clean(chunk)
-        while select.select([fd], [], [], 0.3)[0]:
-            try:
-                chunk = os.read(fd, 1 << 16)
-            except OSError:
-                break
-            if not chunk:
-                break
-            output += clean(chunk)
-
-    candidates = []
-    try:
-        os.write(fd, f"source {script}; PS1='{prompt}'\n".encode())
-        read(lambda: output.count(prompt) >= 1)
-        for cmdline in cmdlines:
-            seen = len(output)
-            os.write(fd, cmdline.encode() + b"\t")
-            # the typed line is echoed back, followed by whatever readline inserted
-            read(lambda cmdline=cmdline, seen=seen: cmdline in output[seen:])
-            candidates.append(output[seen:])
-        os.write(fd, b"\x15exit\n")  # discard the line & quit
-        read(lambda: True)
-    finally:
-        os.close(fd)
-        os.kill(pid, signal.SIGKILL)
-        os.waitpid(pid, 0)
-    return candidates
+    """Return pty-driven completion candidates for each of `cmdlines`."""
+    with BashShell(cwd) as shell:
+        return shell.run(completion, cmdlines)
 
 
 def test_bash_dir_collision(change_dir, test_parser):
