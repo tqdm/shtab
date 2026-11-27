@@ -853,6 +853,22 @@ def test_placeholder_help_expansion(shell):
     assert "also test thing" in completion
 
 
+@pytest.mark.parametrize("parser_kwargs", [{}, {"help": "validate model"}])
+def test_zsh_subcommand_after_positional(change_dir, parser_kwargs):
+    parser = ArgumentParser(prog="demo")
+    parser.add_argument("--config")
+    parser.add_argument("model")
+    subparsers = parser.add_subparsers(dest="command")
+    validate = subparsers.add_parser("validate", **parser_kwargs)
+    validate.add_argument("instance", choices=["input"])
+    validate.add_argument("--scope", choices=["syntax", "semantics"])
+    completion = complete(parser, "zsh")
+    assert zsh_candidates(completion, "demo model validate i", change_dir, "demo") == ["input"]
+    candidates = zsh_candidates(completion, "demo --config cfg model validate input --scope s",
+                                change_dir, "demo")
+    assert sorted(candidates) == ["semantics", "syntax"]
+
+
 def test_fish_subcommand_description():
     """add_parser(help=...) is used when there is no description (#231)"""
     parser = ArgumentParser(prog="test")

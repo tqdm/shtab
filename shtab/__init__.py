@@ -3,7 +3,7 @@ import logging
 import re
 from argparse import (ONE_OR_MORE, REMAINDER, SUPPRESS, ZERO_OR_MORE, Action, ArgumentParser,
                       _ActionsContainer, _AppendAction, _AppendConstAction, _CountAction,
-                      _HelpAction, _StoreConstAction, _VersionAction)
+                      _HelpAction, _StoreConstAction, _SubParsersAction, _VersionAction)
 from collections import defaultdict
 from collections.abc import Callable
 from contextlib import contextmanager
@@ -238,12 +238,11 @@ def get_public_subcommands(sub) -> dict[str, str]:
     # check SUPPRESS to be forward-compatible with python/cpython#67037
     return {
         k: h
-        for k, v in sub.choices.items() if (h := public_parsers.get(id(v), SUPPRESS)) != SUPPRESS}
+        for k, v in sub.choices.items() if (h := public_parsers.get(id(v), "")) != SUPPRESS}
 
 
 def is_subparser(positional):
-    return isinstance(positional.choices, dict) and positional._get_subactions() and all(
-        isinstance(v, ArgumentParser) for v in positional.choices.values())
+    return isinstance(positional, _SubParsersAction)
 
 
 def get_bash_commands(root_parser, root_prefix, choice_functions=None):
@@ -647,9 +646,11 @@ def complete_zsh(parser, root_prefix=None, preamble="", choice_functions=None):
     def recurse(parser, prefix, paths=None):
         paths = paths or []
         subcmds = []
-        for sub in parser._get_positional_actions():
-            if sub.help == SUPPRESS or not is_subparser(sub):
+        positionals = (arg for arg in parser._get_positional_actions() if arg.help != SUPPRESS)
+        for position, sub in enumerate(positionals, 1):
+            if not is_subparser(sub):
                 continue
+            all_commands[prefix]["command_position"] = position
             log.debug("subparser:choices:%s:%s", prefix, sorted(sub.choices))
             public_cmds = get_public_subcommands(sub)
             for cmd, subparser in sub.choices.items():
@@ -694,6 +695,7 @@ def complete_zsh(parser, root_prefix=None, preamble="", choice_functions=None):
     def command_case(prefix, options):
         name = options["cmd"]
         commands = options["commands"]
+        command_position = options.get("command_position", 1)
         case_fmt_on_no_sub = """{name}) _arguments -C -s ${prefix}_{name_wordify}_options ;;"""
         case_fmt_on_sub = """{name}) {prefix}_{name_wordify} ;;"""
 
@@ -723,15 +725,15 @@ curcontext="$curcontext" one_or_more='(*)' remainder='(-)*:' default='*::: :->${
 
   case $state in
     ${name})
-      words=($line[1] "${words[@]}")
+      words=($line[${command_position}] "${words[@]}")
       (( CURRENT += 1 ))
-      curcontext="${curcontext%:*:*}:${prefix}-$line[1]:"
-      case $line[1] in
+      curcontext="${curcontext%:*:*}:${prefix}-$line[${command_position}]:"
+      case $line[${command_position}] in
         ${cases}
       esac
   esac
 }
-""").safe_substitute(name=name, prefix=prefix, cases=cases)
+""").safe_substitute(name=name, prefix=prefix, cases=cases, command_position=command_position)
 
     def command_option(prefix, options):
         arguments = "\n  ".join(options["arguments"])
