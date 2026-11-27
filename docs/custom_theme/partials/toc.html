@@ -21,5 +21,8 @@
     </ul>
   {% endif %}
   <!-- secnav -->
+  <!-- render only in right sidebar (left-nav included from partials/nav-item.html is always display:none, but its #manual id would duplicate) -->
+  {% if nav_item is not defined %}
   <div class="adaptive flat" data-ea-publisher="tqdmgithubio" data-ea-type="image" id="manual"></div>
+  {% endif %}
 </nav>

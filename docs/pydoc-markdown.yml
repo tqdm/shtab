@@ -13,6 +13,7 @@ renderer:
       type: github
       repo: tqdm/shtab
       use_branch: true
+    insert_header_anchors: false  # already done by mkdocs toc extension
     source_position: before signature
     source_format: |-
       <span style="float: right; font-size: 75%;">

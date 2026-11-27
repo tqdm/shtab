@@ -1,15 +1,23 @@
 import re
 from functools import partial
 
+from docspec import Docstring
 from pydoc_markdown.contrib.processors.pydocmd import PydocmdProcessor
 
 sub = partial(re.sub, flags=re.M)
+
+# docstrings for module-level constants
+_CONSTANT_DOCS = {'FILE': 'Existing filenames.', 'DIRECTORY': 'Existing directories.'}
 
 
 class ShtabProcessor(PydocmdProcessor):
     def _process(self, node):
         if not getattr(node, "docstring", None):
-            return super()._process(node)
+            if node.name in _CONSTANT_DOCS:
+                node.docstring = Docstring(location=node.location,
+                                           content=_CONSTANT_DOCS[node.name])
+            else:
+                return super()._process(node)
         # convert parameter lists to markdown list
         c = sub(r"^([a-z]\w+)(:.*?)$", r"* __\1__\2", node.docstring.content)
         # fix file cross-references
