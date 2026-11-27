@@ -264,30 +264,19 @@ def zsh_specs(completion, name, tmp_path):
     proc = subprocess.run(
         ['zsh', '-f', '-c', f'eval "$(<{script})" && print -rl -- "${{(@){name}}}"'], text=True,
         capture_output=True)
-    assert proc.returncode == 0, proc.stderr
+    # `eval` before `compinit` must not fail on a missing `compdef` (#277)
+    assert proc.returncode == 0 and not proc.stderr, proc.stderr
     return proc.stdout.splitlines()
 
 
-def test_zsh_eval_without_compinit(tmp_path):
-    """`eval` before `compinit` must not fail on a missing `compdef`."""
-    if not shutil.which('zsh'):
-        pytest.skip("zsh not available")
-    script = tmp_path / "completion.zsh"
-    script.write_text(complete(ArgumentParser(prog="test"), "zsh"))
-    proc = subprocess.run(['zsh', '-f', '-c', f'eval "$(<{script})"'], text=True,
-                          capture_output=True)
-    assert proc.returncode == 0, proc.stderr
-    assert not proc.stderr, proc.stderr
-
-
 def test_zsh_eval_registers_after_compinit(tmp_path):
-    """A `compinit` running after the `eval` must not lose the association."""
+    """`compinit` running after `eval`"""
     if not shutil.which('zsh'):
         pytest.skip("zsh not available")
     script = tmp_path / "completion.zsh"
     script.write_text(complete(ArgumentParser(prog="test"), "zsh"))
     dump = tmp_path / ".zcompdump"
-    # `zsh -c` never reaches a prompt, so run the prompt hooks the way zsh's prompt loop does
+    # `zsh -c` never reaches a prompt, so run prompt hooks the way zsh's prompt loop does
     values = subprocess.check_output([
         'zsh', '-f', '-c', f"""\
 eval "$(<{script})"
