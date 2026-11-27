@@ -804,7 +804,7 @@ def test_powershell_single_token(test_parser, change_dir):
 
 
 def test_powershell_case_sensitive_keys():
-    """Names differing only in case must not clash in the completion data (#267)"""
+    """Names differing only in case must not clash (#267)"""
     parser = ArgumentParser(prog="myprog")
     parser.add_argument("-c", action="store_true", help="lower case")
     parser.add_argument("-C", help="upper case")

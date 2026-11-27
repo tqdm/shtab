@@ -1153,12 +1153,7 @@ def _powershell_list(items):
 
 
 def _powershell_ordinal_hashtable(entries):
-    """
-    Serialize (key, value) pairs of PowerShell expressions to a case-sensitive hashtable.
-
-    Hash literals (`@{}`) compare keys case-insensitively, so keys such as `-c` and `-C`
-    would be duplicates and the whole script would fail to parse (#267).
-    """
+    """Serialize (key, value) pairs to a case-sensitive PowerShell hashtable."""
     table = "[System.Collections.Hashtable]::new([System.StringComparer]::Ordinal)"
     if not entries:
         return table
@@ -1166,16 +1161,10 @@ def _powershell_ordinal_hashtable(entries):
     return "& {\n  $table = " + table + "\n" + "\n".join(lines) + "\n  $table\n}"
 
 
-def _powershell_hashtable(d):
-    """Serialize a dict[str, list[str]] to a PowerShell hashtable."""
+def _powershell_hashtable(d, value=_powershell_list):
+    """Serialize dict[str, str | list[str]] to a PowerShell hashtable."""
     return _powershell_ordinal_hashtable([
-        (_powershell_escape(key), _powershell_list(values)) for key, values in sorted(d.items())])
-
-
-def _powershell_flat_hashtable(d):
-    """Serialize a dict[str, str] to a PowerShell hashtable."""
-    return _powershell_ordinal_hashtable([
-        (_powershell_escape(key), _powershell_escape(value)) for key, value in sorted(d.items())])
+        (_powershell_escape(key), value(values)) for key, values in sorted(d.items())])
 
 
 def get_powershell_commands(root_parser, root_prefix, choice_functions=None):
@@ -1491,10 +1480,10 @@ Register-ArgumentCompleter -Native -CommandName ${prog} -ScriptBlock {
 """.replace("&NoBreak;\n", "")).safe_substitute(
         subparsers_ht=_powershell_hashtable(subparsers),
         option_strings_ht=_powershell_hashtable(option_strings),
-        compgens_ht=_powershell_flat_hashtable(compgens),
+        compgens_ht=_powershell_hashtable(compgens, _powershell_escape),
         choices_ht=_powershell_hashtable(choices),
-        nargs_ht=_powershell_flat_hashtable(nargs),
-        help_ht=_powershell_flat_hashtable(help_text),
+        nargs_ht=_powershell_hashtable(nargs, _powershell_escape),
+        help_ht=_powershell_hashtable(help_text, _powershell_escape),
         preamble=f"\n# Custom Preamble\n{preamble}\n# End Custom Preamble\n" if preamble else "",
         root_prefix=root_prefix,
         prog=parser.prog,
