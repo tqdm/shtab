@@ -1120,6 +1120,25 @@ def test_bash_path_completion_in_middle_of_command(change_dir):
     shell.test('"${COMPREPLY[@]}" = "folder"')
 
 
+@pytest.mark.parametrize("filename,prefix", [
+    ("file with space.txt", "file with"),
+    ("file[1].txt", "file[1]"),])
+@pytest.mark.parametrize("directory", [False, True], ids=["file", "directory"])
+def test_bash_path_completion_special_characters(change_dir, filename, prefix, directory):
+    parser = ArgumentParser(prog="test")
+    parser.add_argument("--file").complete = shtab.DIRECTORY if directory else shtab.FILE
+    completion = shtab.complete(parser, shell="bash")
+    for name in (filename, "file-other.txt", "file1"):
+        path = change_dir / name
+        if directory:
+            path.mkdir()
+        else:
+            path.touch()
+    shell = Bash(completion + f"\nCOMP_WORDS=(test --file '{prefix}'); "
+                 "COMP_CWORD=2; _shtab_test;")
+    shell.test(f'"${{#COMPREPLY[@]}}" = 1 && "${{COMPREPLY[0]}}" = "{filename}"')
+
+
 def test_bash_option_completion_after_positional_path():
     parser = ArgumentParser(prog="test")
     parser.add_argument("path").complete = shtab.DIRECTORY
