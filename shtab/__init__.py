@@ -400,12 +400,12 @@ ${nargs}
 ${preamble}
 # $1=COMP_WORDS[1]
 _shtab_compgen_files() {
-  compgen -f -- $1  # files
+  compgen -f -- "$1"  # files
 }
 
 # $1=COMP_WORDS[1]
 _shtab_compgen_dirs() {
-  compgen -d -- $1  # recurse into subdirs
+  compgen -d -- "$1"  # recurse into subdirs
 }
 
 # $1=COMP_WORDS[1]
